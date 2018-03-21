@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sample</title>
+<link href="css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+
+<!--main-->
+<div class="container sample">
+    <div class="panel panel-default">
+        <div class="panel-heading">PGP File</div>
+        <div class="panel-body">
+            <div>
+                <pre>API:http://192.168.33.6:8000/encrypt</pre>
+            </div>
+            <form id="get_task_form" method="post" enctype="multipart/form-data" action="/encrypt" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <textarea name="key" class="form-control" rows="12" placeholder="PGP public key.."></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <input name="upload" type="file" class="form-control" value="" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <input type="submit" class="btn btn-primary" value="Submit">
+                    </div>
+                </div>
+                <div class="form-group"><code></code></div>
+            </form>
+        </div>
+    </div>
+	
+	<div class="panel panel-default">
+        <div class="panel-heading">PGP and Upload File</div>
+        <div class="panel-body">
+            <div>
+                <pre>API:http://192.168.33.6:8000/upload</pre>
+            </div>
+            <form id="get_task_form" method="post" enctype="multipart/form-data" action="/upload" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <textarea name="key" class="form-control" rows="12" placeholder="PGP public key.."></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <select name="deploy" class="form-control">
+                            <option value="dev">DEV</option>
+                            <option value="pro">PRO</option>
+                            <option value="testing">TESTING</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <input name="upload" type="file" class="form-control" value="" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <input type="submit" class="btn btn-primary" value="Submit">
+                    </div>
+                </div>
+                <div class="form-group"><code></code></div>
+            </form>
+        </div>
+    </div>
+	
+	<div class="panel panel-default">
+        <div class="panel-heading">PGP and Upload Multiple File</div>
+        <div class="panel-body">
+            <div>
+                <pre>API:http://192.168.33.6:8000/multiple/upload</pre>
+            </div>
+<pre>
+直接提交JSON数据，
+JSON结构示例：
+```
+{
+	//待上传文件结构， filename => file url
+    "files": {
+        "M_Article_Zurich_2.gif": "https:\/\/s3-ap-southeast-1.amazonaws.com\/s3.jetso.com\/asset\/images\/M_Article_Zurich_2.gif",
+        "M_Article_Zurich_4.jpg": "https:\/\/s3-ap-southeast-1.amazonaws.com\/s3.jetso.com\/asset\/images\/M_Article_Zurich_4.jpg",
+        "M_Article_Zurich_ca.gif": "https:\/\/s3-ap-southeast-1.amazonaws.com\/s3.jetso.com\/asset\/images\/M_Article_Zurich_ca.gif"
+    },
+	//PGP 加密公匙
+    "key": "-----BEGIN PGP PUBLIC KEY BLOCK-----\r\nVersion: GnuPG v2\r\n\r\nmQENBFV2aQkBCADuEi0WB\/VeHp2zo\/6XRnX6uLbIyKQszo0gW6Ek4WGdTvovX\/9r\r\nh6qNx++pcLmT8wmuwvMMIyvsNEt5eKsWSgjJZfSqwo2uMYePpz2ZjruC+eGzONS5\r\nnWBbmScnmGphlLXnW8OpOb2JFqiZRj8Rv+UEUy39DsFiwsNBRkYzWgbX6yI7YgNH\r\nRZxcCWvhZZrDbBSDlhzzSFQttVS+PchvI1rXkgbO5igopsolj86LnB0HnZqlivNE\r\naQ1xxfTKPv9tKm3DeZqEPdbpBkxBdrqDEye9Gjq06wgJQ68bIzwqAAFuCKKWfeCg\r\nCclw3MaVTXX5wuwl4V8mqVvkMOUt9Qkli149ABEBAAG0J0RSSVZFUl9VQVRfS0VZ\r\nIDx0ZXJyYW5jZUBkcml2ZXIuY29tLmhrPokBOQQTAQgAIwUCVXZpCQIbDwcLCQgH\r\nAwIBBhUIAgkKCwQWAgMBAh4BAheAAAoJENxsjOiA47hHuxIH\/3Y8DgLiM0oD6opP\r\nN1Wwnd5f9\/J3is9WlaKuxGP6iDjHKfTf2Bcwm5AC1+XosW6HSrd7g9JiubG6Cvsz\r\nkI\/voFVGPJoCr+2sPY0r8hCYFQAYPr1U9EoCTYICORbJZMeucAo4v6AH9LxwDFx0\r\n8IpXkfwett+Q2AvMAQw6v0s0bqTJ20n4dLCfhdu3IdDgTXlg6My\/mGswao1f+BdE\r\ntdJ5iBL\/QMpowoz2SZeiYMtLOxf+NC5h2iVxd+ijZ0JjMEedSozz0y60QuVWaJ2J\r\nndSjEwhphcx6cGctnJ83w4CQkGurfGQKs0S5k+5zUxANulSufSiH9mC4n3rOEw2v\r\nqW3H6jg=\r\n=YW+U\r\n-----END PGP PUBLIC KEY BLOCK-----\r\n",
+    //上传目录 dev | pro | uat
+	"env": "dev",
+	//通知回调，当PGP及upload 完成后，会HTTP GET 该地址，需要在response中输出 success，作为正确接收相应，不然会重试访问2次
+    "notify": "http:\/\/www.baidu.com\/"
+}
+```
+</pre>
+            <form id="get_task_form" method="post" action="multiple/upload" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <textarea class="form-control" rows="12" placeholder="Request JSON Body..."></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <input type="submit" class="btn btn-primary" value="Submit">
+                    </div>
+                </div>
+                <div class="form-group"><code></code></div>
+            </form>
+        </div>
+    </div>
+	
+	<div class="panel panel-default">
+        <div class="panel-heading">Covert HTML to PDF</div>
+        <div class="panel-body">
+            <div>
+                <pre>API:http://192.168.33.6:8000/htmlpdf</pre>
+            </div>
+			<pre>File upload mode:</pre>
+            <form id="get_task_form" method="post" enctype="multipart/form-data" action="/htmlpdf" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <input name="upload" type="file" class="form-control" value="" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <input type="submit" class="btn btn-primary" value="Submit">
+                    </div>
+                </div>
+                <div class="form-group"><code></code></div>
+            </form>
+			
+			<hr/>
+			<pre>Text upload mode:</pre>
+			<form id="get_task_form" method="post" action="/htmlpdf" class="form-horizontal" role="form">
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <textarea name="upload" rows="6" class="form-control"></textarea>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-6 f-body">
+                        <input type="submit" class="btn btn-primary" value="Submit">
+                    </div>
+                </div>
+                <div class="form-group"><code></code></div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+(function(){
+    var pre_list = document.getElementsByTagName("pre");
+    for(var i in pre_list) {
+        var html = pre_list[i].innerHTML + "";
+        pre_list[i].innerHTML = html.replace('192.168.33.6:8000', location.host);
+    }
+})()
+</script>
+</body>
+</html>

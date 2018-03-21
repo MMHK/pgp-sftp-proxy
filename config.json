@@ -1,0 +1,16 @@
+{
+    "listen": "${HOST}",
+    "tmp_path": "${TEMP}",
+	"web_root" : "${ROOT}",
+	"ssh" : {
+		"host" : "${SSH_HOST}",
+		"user" : "${SSH_USER}",
+		"password" : "${SSH_PWD}",
+		"key" : "${SSH_KEY}"
+	},
+	"deploy_path" : {
+		"dev" : "${DEPLOY_PATH_DEV}",
+		"pro" : "${DEPLOY_PATH_PRODUCTION}",
+		"test" : "${DEPLOY_PATH_TESTING}"
+	}
+}
