@@ -3,10 +3,16 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "oyYwKGC0a+WbZQkDLY1kG+vCuF0=",
-			"path": "github.com/MMHK/zip",
-			"revision": "d128122f0c4478f0fa490c6defc73ae5e1e68e58",
-			"revisionTime": "2017-09-22T06:19:56Z"
+			"checksumSHA1": "VLAuO+KnXsoqb1LbhHp6QF2Ycbg=",
+			"path": "github.com/MMHK/pgp-sftp-proxy",
+			"revision": "dee130d66ae14e1ad7ee46264b6025a80f775990",
+			"revisionTime": "2018-03-21T08:27:30Z"
+		},
+		{
+			"checksumSHA1": "/IKHdVCzo6BI93ZoYpC4sklJxL0=",
+			"path": "github.com/MMHK/pgp-sftp-proxy/lib",
+			"revision": "dee130d66ae14e1ad7ee46264b6025a80f775990",
+			"revisionTime": "2018-03-21T08:27:30Z"
 		},
 		{
 			"checksumSHA1": "IkPM2QLv9urri7S49wzroQx9oXA=",
@@ -107,12 +113,6 @@
 		{
 			"checksumSHA1": "s2qT4UwvzBSkzXuiuMkowif1Olw=",
 			"path": "golang.org/x/crypto/openpgp/s2k",
-			"revision": "5ef0053f77724838734b6945dd364d3847e5de1d",
-			"revisionTime": "2017-06-29T04:06:47Z"
-		},
-		{
-			"checksumSHA1": "1MGpGDQqnUoRpv7VEcQrXOBydXE=",
-			"path": "golang.org/x/crypto/pbkdf2",
 			"revision": "5ef0053f77724838734b6945dd364d3847e5de1d",
 			"revisionTime": "2017-06-29T04:06:47Z"
 		},

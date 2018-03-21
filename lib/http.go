@@ -43,7 +43,6 @@ func (s *HTTPService) Start() {
 	r.HandleFunc("/encrypt", s.Encrypt)
 	r.HandleFunc("/upload", s.Upload)
 	r.HandleFunc("/multiple/upload", s.Multiple)
-	r.HandleFunc("/htmlpdf", s.HTMLPDF)
 	r.PathPrefix("/sample/").Handler(http.StripPrefix("/sample/",
 		http.FileServer(http.Dir(fmt.Sprintf("%s/sample", s.config.WebRoot)))))
 	r.NotFoundHandler = http.HandlerFunc(s.NotFoundHandle)
@@ -131,42 +130,6 @@ func (s *HTTPService) Upload(writer http.ResponseWriter, request *http.Request) 
 		})
 	}()
 	fmt.Fprintf(writer, "{\"status\":1}")
-}
-
-func (s *HTTPService) HTMLPDF(writer http.ResponseWriter, request *http.Request) {
-
-	upload_text := request.FormValue("upload")
-	var bin []byte
-	if len(upload_text) > 0 {
-		bin = []byte(upload_text)
-	} else {
-		request.ParseMultipartForm(32 << 20)
-		file, _, err := request.FormFile("upload")
-		if err != nil {
-			ErrLogger.Println(err)
-			s.ResponseError(err, writer, 500)
-			return
-		}
-		defer file.Close()
-
-		bin, err = ioutil.ReadAll(file)
-		if err != nil {
-			ErrLogger.Println(err)
-			s.ResponseError(err, writer, 500)
-			return
-		}
-	}
-
-	htmlpdf := NewHTMLPDF(s.config)
-	err, outbin := htmlpdf.build(bin)
-	if err != nil {
-		ErrLogger.Println(err)
-		s.ResponseError(err, writer, 500)
-		return
-	}
-	writer.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%d.pdf", time.Now().UnixNano()))
-	writer.Header().Set("Content-Type", "application/pdf")
-	writer.Write(outbin)
 }
 
 func (s *HTTPService) Encrypt(writer http.ResponseWriter, request *http.Request) {

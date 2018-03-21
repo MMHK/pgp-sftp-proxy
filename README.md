@@ -10,15 +10,6 @@ sftp http proxy with PGP encrypt
 - 自带http server，使用http rest API操作
 - API文档请编译后执行 `http://127.0.0.1:3333/sample/api.html`
 
-外部依赖：
-- [wkhtmltopdf](http://wkhtmltopdf.org/) 用于将html文件转换成PDF
-
-## wkhtmltopdf  安装
-----
-`*nix` 下不要使用 `APT` / `YUM` 安装，官方有预编译二进制版本。安装版本需要`Xorg`支持。
-
-由于wkhtmltopdf是使用系统自带的字体渲染HTML页面的，所以请预先将使用到的Font安装到目标系统中。
-
 ## 编译
 ----
 - 安装Golang环境, Go >= 1.5
