@@ -7,9 +7,9 @@ ENV HOST=0.0.0.0:3333 \
  SSH_USER= \
  SSH_PWD= \
  SSH_KEY= \
- DEPLOY_PATH_DEV= \
- DEPLOY_PATH_PRODUCTION= \
- DEPLOY_PATH_TESTING= \
+ DEPLOY_PATH_DEV=/Interface_Development_Files/ \
+ DEPLOY_PATH_PRODUCTION=/Interface_Production_Files/ \
+ DEPLOY_PATH_TESTING=/Interface_UAT_Files/ \
  
 WORKDIR /root/src/github.com/mmhk/pgp-sftp-proxy
 
