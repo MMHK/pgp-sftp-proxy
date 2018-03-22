@@ -1,7 +1,7 @@
 FROM debian:jessie
 
 ENV HOST=0.0.0.0:3333 \
- ROOT=/app/pgp-sftp-proxy/web_root \
+ ROOT=/usr/local/pgp-sftp-proxy/web_root \
  TEMP=/tmp \
  SSH_HOST= \
  SSH_USER= \
@@ -9,7 +9,7 @@ ENV HOST=0.0.0.0:3333 \
  SSH_KEY= \
  DEPLOY_PATH_DEV= \
  DEPLOY_PATH_PRODUCTION= \
- DEPLOY_PATH_TESTING= \
+ DEPLOY_PATH_TESTING=
  
 WORKDIR /root/src/github.com/mmhk/pgp-sftp-proxy
 
@@ -24,8 +24,8 @@ RUN set -x  \
         git \
         gettext-base \
 # install go runtime
- && curl -O https://dl.google.com/go/go1.8.7.linux-amd64.tar.gz \
- && tar xvf go1.8.7.linux-amd64.tar.gz \
+ && curl -O https://dl.google.com/go/go1.9.4.linux-amd64.tar.gz \
+ && tar xvf go1.9.4.linux-amd64.tar.gz \
  && mv ./go /usr/local/go \
 # build pgp-sftp-proxy
  && export GOPATH=/root \
