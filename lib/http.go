@@ -7,10 +7,8 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -24,11 +22,22 @@ type ServiceResult struct {
 	Error  string `json:"error"`
 }
 
+// swagger:model
 type MultipleBody struct {
-	Files     map[string]string `json:"files"`
-	PGPKey    string            `json:"key"`
-	ENV       string            `json:"env"`
-	NotifyURL string            `json:"notify"`
+	// in:body
+
+	// upload files
+	// required: true
+	Files []*ZurichFile `json:"files"`
+	// PGP public key
+	// required: true
+	PGPKey string `json:"key"`
+	// sftp remote save folder
+	// required: true
+	// enum: dev, pro, test
+	ENV string `json:"env"`
+	// notify URL
+	NotifyURL string `json:"notify"`
 }
 
 func NewHTTP(conf *Config) *HTTPService {
@@ -37,28 +46,32 @@ func NewHTTP(conf *Config) *HTTPService {
 	}
 }
 
-func (s *HTTPService) Start() {
+func (this *HTTPService) getHTTPHandler() http.Handler {
 	r := mux.NewRouter()
-	r.HandleFunc("/", s.RedirectSample)
-	r.HandleFunc("/encrypt", s.Encrypt)
-	r.HandleFunc("/upload", s.Upload)
-	r.HandleFunc("/multiple/upload", s.Multiple)
-	r.PathPrefix("/sample/").Handler(http.StripPrefix("/sample/",
-		http.FileServer(http.Dir(fmt.Sprintf("%s/sample", s.config.WebRoot)))))
-	r.NotFoundHandler = http.HandlerFunc(s.NotFoundHandle)
-
-	InfoLogger.Println("http service starting")
-	InfoLogger.Printf("Please open http://%s\n", s.config.Listen)
-	http.ListenAndServe(s.config.Listen, r)
+	r.HandleFunc("/", this.RedirectSample)
+	r.HandleFunc("/encrypt", this.Encrypt)
+	r.HandleFunc("/upload", this.Upload)
+	r.HandleFunc("/multiple/upload", this.Multiple)
+	r.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/",
+		http.FileServer(http.Dir(fmt.Sprintf("%s/swagger", this.config.WebRoot)))))
+	r.NotFoundHandler = http.HandlerFunc(this.NotFoundHandle)
+	
+	return r
 }
 
-func (s *HTTPService) NotFoundHandle(writer http.ResponseWriter, request *http.Request) {
+func (this *HTTPService) Start() error {
+	log.Info("http service starting")
+	log.Infof("Please open http://%s\n", this.config.Listen)
+	return http.ListenAndServe(this.config.Listen, this.getHTTPHandler())
+}
+
+func (this *HTTPService) NotFoundHandle(writer http.ResponseWriter, request *http.Request) {
 	http.Error(writer, "handle not found!", 404)
-	s.ResponseError(errors.New("handle not found!"), writer, 404)
+	this.ResponseError(errors.New("handle not found!"), writer, 404)
 }
 
-func (s *HTTPService) RedirectSample(writer http.ResponseWriter, request *http.Request) {
-	http.Redirect(writer, request, "/sample/index.html", 301)
+func (this *HTTPService) RedirectSample(writer http.ResponseWriter, request *http.Request) {
+	http.Redirect(writer, request, "/swagger/index.html", 301)
 }
 
 func GetMimeType(src *multipart.FileHeader) (string, string, error) {
@@ -70,12 +83,12 @@ func GetMimeType(src *multipart.FileHeader) (string, string, error) {
 	return "", "", errors.New("Not Found MimeInfo")
 }
 
-func (s *HTTPService) Upload(writer http.ResponseWriter, request *http.Request) {
+func (this *HTTPService) Upload(writer http.ResponseWriter, request *http.Request) {
 	request.ParseMultipartForm(32 << 20)
 	file, header, err := request.FormFile("upload")
 	if err != nil {
-		ErrLogger.Println(err)
-		s.ResponseError(err, writer, 500)
+		log.Error(err)
+		this.ResponseError(err, writer, 500)
 		return
 	}
 	defer file.Close()
@@ -85,58 +98,56 @@ func (s *HTTPService) Upload(writer http.ResponseWriter, request *http.Request) 
 
 	var src_data []byte
 	mimeType, filename, err := GetMimeType(header)
-	InfoLogger.Println("filename:", filename)
+	log.Info("filename:", filename)
 	if err == nil && strings.Contains(mimeType, "image") {
 		//convert to pdf
-		src_data, err = SavePDF(file, filename, s.config.TempPath)
+		reader, err := getPDFBytes(file, this.config.TempPath)
 		if err != nil {
-			ErrLogger.Println(err)
-			s.ResponseError(err, writer, 500)
+			log.Error(err)
+			this.ResponseError(err, writer, 500)
+			return
+		}
+		src_data, err = ioutil.ReadAll(reader)
+		if err != nil {
+			log.Error(err)
+			this.ResponseError(err, writer, 500)
 			return
 		}
 		filename = filename + ".pdf"
 	} else {
 		src_data, err = ioutil.ReadAll(file)
 		if err != nil {
-			ErrLogger.Println(err)
-			s.ResponseError(err, writer, 500)
+			log.Error(err)
+			this.ResponseError(err, writer, 500)
 			return
 		}
 	}
 
 	key_reader := strings.NewReader(key)
-	filename = path.Join(s.config.TempPath, filename+".pgp")
-	err = PGP_Encrypt_File(src_data, key_reader, filename)
+	remoteFile := path.Join(this.config.GetDeployPath(deploy_type), filename+".pgp")
+	bin, err := PGP_Encrypt(src_data, key_reader)
 	if err != nil {
-		ErrLogger.Println(err)
-		s.ResponseError(err, writer, 500)
+		log.Error(err)
+		this.ResponseError(err, writer, 500)
 		return
 	}
 
-	ssh := NewSSHClient(&s.config.SSH)
-	err = ssh.UploadFile(filename, s.config.GetDeployPath(deploy_type))
+	ssh := NewSSHClient(&this.config.SSH)
+	err = ssh.Put(remoteFile, strings.NewReader(bin))
 	if err != nil {
-		ErrLogger.Println(err)
-		s.ResponseError(err, writer, 500)
+		log.Error(err)
+		this.ResponseError(err, writer, 500)
 		return
 	}
-	//remove uploaded file
-	defer func() {
-		time.AfterFunc(time.Second*2, func() {
-			err = os.Remove(filename)
-			if err != nil {
-				ErrLogger.Println(err)
-			}
-		})
-	}()
+
 	fmt.Fprintf(writer, "{\"status\":1}")
 }
 
-func (s *HTTPService) Encrypt(writer http.ResponseWriter, request *http.Request) {
+func (this *HTTPService) Encrypt(writer http.ResponseWriter, request *http.Request) {
 	request.ParseMultipartForm(32 << 20)
 	file, header, err := request.FormFile("upload")
 	if err != nil {
-		ErrLogger.Println(err)
+		log.Error(err)
 		http.Error(writer, err.Error(), 500)
 		return
 	}
@@ -144,76 +155,74 @@ func (s *HTTPService) Encrypt(writer http.ResponseWriter, request *http.Request)
 
 	key := request.FormValue("key")
 	var src_data []byte
-	mimeType, filename, err := GetMimeType(header)
+	mimeType, _, err := GetMimeType(header)
 	if err == nil && strings.Contains(mimeType, "image") {
 		//convert to pdf
-		src_data, err = SavePDF(file, filename, s.config.TempPath)
+		reader, err := getPDFBytes(file, this.config.TempPath)
 		if err != nil {
-			ErrLogger.Println(err)
-			s.ResponseError(err, writer, 500)
+			log.Error(err)
+			this.ResponseError(err, writer, 500)
+			return
+		}
+
+		src_data, err = ioutil.ReadAll(reader)
+		if err != nil {
+			log.Error(err)
+			this.ResponseError(err, writer, 500)
 			return
 		}
 	} else {
 		src_data, err = ioutil.ReadAll(file)
 		if err != nil {
-			ErrLogger.Println(err)
-			s.ResponseError(err, writer, 500)
+			log.Error(err)
+			this.ResponseError(err, writer, 500)
 			return
 		}
 	}
-
-	key_reader := strings.NewReader(key)
-	encodeEntry, err := PGP_Encrypt(src_data, key_reader)
+	keyReader := strings.NewReader(key)
+	encodeEntry, err := PGP_Encrypt(src_data, keyReader)
 	if err != nil {
-		ErrLogger.Println(err)
-		s.ResponseError(err, writer, 500)
+		log.Error(err)
+		this.ResponseError(err, writer, 500)
 		return
 	}
 	fmt.Fprintf(writer, encodeEntry)
 }
 
-func (s *HTTPService) ResponseError(err error, writer http.ResponseWriter, StatusCode int) {
+func (this *HTTPService) ResponseError(err error, writer http.ResponseWriter, StatusCode int) {
 	server_error := &ServiceResult{Error: err.Error(), Status: false}
 	json_str, _ := json.Marshal(server_error)
+	writer.Header().Add("Content-Type", "application/json")
+
 	http.Error(writer, string(json_str), StatusCode)
 }
 
-func (s *HTTPService) Multiple(writer http.ResponseWriter, request *http.Request) {
+func (this *HTTPService) Multiple(writer http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
 	var reqBody MultipleBody
 	err := decoder.Decode(&reqBody)
 	if err != nil {
-		ErrLogger.Println(err)
-		s.ResponseError(errors.New("decode request body error"), writer, 500)
+		log.Error(err)
+		this.ResponseError(errors.New("decode request body error"), writer, 500)
 		return
 	}
 
 	if len(reqBody.Files) <= 0 {
-		s.ResponseError(errors.New("File list empty"), writer, 500)
+		this.ResponseError(errors.New("File list empty"), writer, 500)
 		return
 	}
 
 	if len(reqBody.PGPKey) <= 0 {
-		s.ResponseError(errors.New("PGPKey empty"), writer, 500)
+		this.ResponseError(errors.New("PGPKey empty"), writer, 500)
 		return
 	}
 
 	if len(reqBody.ENV) <= 0 {
-		s.ResponseError(errors.New("ENV empty"), writer, 500)
+		this.ResponseError(errors.New("ENV empty"), writer, 500)
 		return
 	}
 
-	files := make([]*ZurichFile, len(reqBody.Files))
-	index := 0
-	for filename, url := range reqBody.Files {
-		files[index] = &ZurichFile{
-			Name: filename,
-			Url:  url,
-		}
-		index++
-	}
-
-	z := NewZurich(s.config, files, reqBody.PGPKey, reqBody.ENV, reqBody.NotifyURL)
+	z := NewZurich(this.config, reqBody.Files, reqBody.PGPKey, reqBody.ENV, reqBody.NotifyURL)
 	go z.Process()
 
 	fmt.Fprintf(writer, "{\"status\":1}")

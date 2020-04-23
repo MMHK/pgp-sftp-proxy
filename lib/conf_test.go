@@ -6,7 +6,7 @@ import (
 
 func Test_SaveConfig(t *testing.T) {
 
-	err, conf := NewConfig("config.json")
+	err, conf := NewConfig(getLocalPath("../config.json"))
 	if err != nil {
 		t.Log(err)
 		t.Fail()

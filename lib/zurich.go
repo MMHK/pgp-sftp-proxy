@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,17 +12,19 @@ import (
 	"time"
 )
 
+// swagger:model
 type ZurichFile struct {
-	Name string
+	// required: true
+	Name string `json:"name"`
 	Path string
-	Url  string
+	// required: true
+	Url string `json:"url"`
 }
 
 type Zurich struct {
 	conf        *Config
 	Files       []*ZurichFile
 	NotifyUrl   string
-	downloadJob chan bool
 	prefixPath  string
 	notifyTries int
 	pgpKey      string
@@ -34,8 +37,7 @@ func NewZurich(conf *Config, files []*ZurichFile, publicKey string, ENV string, 
 		conf:        conf,
 		Files:       files,
 		NotifyUrl:   notifyUrl,
-		downloadJob: make(chan bool, 5),
-		prefixPath:  fmt.Sprintf("%d", time.Now().UnixNano()),
+		prefixPath:  fmt.Sprintf("%d", rand.Int63()),
 		pgpKey:      publicKey,
 		notifyTries: 2,
 		pgpFiles:    make([]*ZurichFile, len(files)),
@@ -44,176 +46,192 @@ func NewZurich(conf *Config, files []*ZurichFile, publicKey string, ENV string, 
 }
 
 //准备相关文件
-func (d *Zurich) prepareFile() {
-	InfoLogger.Println("prepare Files")
+func (this *Zurich) prepareFile() (err error) {
+	log.Info("prepare Files")
+	queue := make(chan bool, 0)
+	counter := 0
+	defer close(queue)
 
-	for _, item := range d.Files {
-		go d.DownloadRemoteFile(item)
+	for i, item := range this.Files {
+		counter++
+		
+		go func(i int, item *ZurichFile) {
+			defer func() {
+				queue <- true
+			}()
+			
+			this.Files[i], err = this.DownloadRemoteFile(item)
+		}(i, item)
 	}
-}
-
-func (d *Zurich) Process() {
-	d.prepareFile()
-
-	d.WhenAllFileReady(func() {
-		d.EncryptFiles()
-
-		d.UploadToSFTP()
-
-		if len(d.NotifyUrl) > 0 {
-			d.notifyRemote(d.NotifyUrl)
+	
+	for <-queue {
+		counter--
+		log.Debug("total queue:", counter)
+		
+		if counter <= 0 {
+			break
 		}
-
-		time.AfterFunc(time.Minute*1, func() {
-			d.ClearAllFiles()
-		})
-	})
+	}
+	
+	return nil
 }
 
-//检查路径是否存在
-func (d *Zurich) FileExist(path string) bool {
-	if _, err := os.Stat(path); err == nil {
-		return true
+func (this *Zurich) Process() {
+	defer this.ClearAllFiles()
+	
+	err := this.prepareFile()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	
+	err = this.EncryptFiles()
+	if err != nil {
+		log.Error(err)
+		return
 	}
 
-	return false
+	this.UploadToSFTP()
+
+	if len(this.NotifyUrl) > 0 {
+		this.notifyRemote(this.NotifyUrl)
+	}
 }
 
 //下载远程文件
-func (d *Zurich) DownloadRemoteFile(zFile *ZurichFile) (err error) {
-	InfoLogger.Println("begin download file, url:", zFile.Url)
+func (this *Zurich) DownloadRemoteFile(zFile *ZurichFile) (localFile *ZurichFile, err error) {
+	log.Info("begin download file, url:", zFile.Url)
 
-	basePath := filepath.Join(d.conf.TempPath, d.prefixPath)
+	basePath := filepath.Join(this.conf.TempPath, this.prefixPath)
 
-	if !d.FileExist(basePath) {
-		os.MkdirAll(basePath, 0777)
+	if _, err := os.Stat(basePath); err != nil && os.IsNotExist(err) {
+		os.MkdirAll(basePath, os.ModePerm)
 	}
 	localPath := filepath.Join(basePath, zFile.Name)
 
-	defer (func() {
-		d.downloadJob <- true
-	})()
-
 	file, err := os.Create(localPath)
 	if err != nil {
-		ErrLogger.Println(err)
-		return err
+		log.Error(err)
+		return
 	}
 	defer file.Close()
 
 	resp, err := http.Get(zFile.Url)
 	if err != nil {
-		ErrLogger.Println(err)
-		return err
+		log.Error(err)
+		return
 	}
 	defer resp.Body.Close()
 
 	_, err = io.Copy(file, resp.Body)
 	if err != nil {
-		ErrLogger.Println(err)
-		return err
+		log.Error(err)
+		return
 	}
 
 	zFile.Path = localPath
-	return nil
-}
-
-//当所有操作完成时回调
-func (d *Zurich) WhenAllFileReady(callback func()) {
-	defer callback()
-
-	downloadCount := len(d.Files)
-
-	for {
-		<-d.downloadJob
-		InfoLogger.Println("a download job Done.")
-		downloadCount--
-		if downloadCount <= 0 {
-			break
-		}
-	}
-
-	close(d.downloadJob)
+	return zFile, nil
 }
 
 //清理所有文件夹
-func (d *Zurich) ClearAllFiles() {
-	InfoLogger.Println("begin clear all files")
+func (this *Zurich) ClearAllFiles() {
+	log.Info("begin clear all files")
 
-	os.RemoveAll(filepath.Join(d.conf.TempPath, d.prefixPath))
+	os.RemoveAll(filepath.Join(this.conf.TempPath, this.prefixPath))
 }
 
 //通知远程
-func (d *Zurich) notifyRemote(remoteURL string) {
-	if d.notifyTries < 0 {
+func (this *Zurich) notifyRemote(remoteURL string) {
+	if this.notifyTries < 0 {
 		return
 	}
-	d.notifyTries--
-	InfoLogger.Println("begin notify")
+	this.notifyTries--
+	log.Info("begin notify")
 
-	resp, err := http.Get(d.NotifyUrl)
+	resp, err := http.Get(this.NotifyUrl)
 	if err != nil {
-		ErrLogger.Println(err)
+		log.Error(err)
 		return
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		ErrLogger.Println(err)
+		log.Error(err)
 		return
 	}
-	//	InfoLogger.Println("notify response:", string(body))
+	//	log.Info("notify response:", string(body))
 	//检查通知返回是否正确
 	if !strings.EqualFold(string(body), "success") {
 		//一分钟后重试通知
 		time.AfterFunc(time.Minute*1, func() {
-			InfoLogger.Println("retry notify:", remoteURL)
-			d.notifyRemote(remoteURL)
+			log.Info("retry notify:", remoteURL)
+			this.notifyRemote(remoteURL)
 		})
 	}
 }
 
 //加密索引文件及打包文件
-func (d *Zurich) EncryptFiles() error {
-	InfoLogger.Println("begin encrypt files")
+func (this *Zurich) EncryptFiles() (err error) {
+	log.Info("begin encrypt files")
+	queue := make(chan bool, 0)
+	counter := 0
+	defer close(queue)
 
-	for index, zFile := range d.Files {
-		var src []byte
-		var err error
-		//检查是否图片
-		if d.isImage(zFile.Path) {
-			//将图片转换成PDF
-			pdfFileName := zFile.Path + ".pdf"
-			src, err = GetPDF(zFile.Path)
-			if err != nil {
-				ErrLogger.Println(err)
-				return err
+	for index, zFile := range this.Files {
+		counter++
+		
+		go func(index int, zFile *ZurichFile) {
+			defer func() {
+				queue <- true
+			}()
+			
+			log.Debug("begin encrypt file:", zFile.Name)
+			
+			var src []byte
+			var err error
+			//检查是否图片
+			if this.isImage(zFile.Path) {
+				//将图片转换成PDF
+				pdfFileName := zFile.Path + ".pdf"
+				src, err = GetPDF(zFile.Path)
+				if err != nil {
+					log.Error(err)
+				}
+				zFile.Path = pdfFileName
+			} else {
+				src, err = ioutil.ReadFile(zFile.Path)
+				if err != nil {
+					log.Error(err)
+				}
 			}
-			zFile.Path = pdfFileName
-		} else {
-			src, err = ioutil.ReadFile(zFile.Path)
-			if err != nil {
-				ErrLogger.Println(err)
-				return err
+			keyReader := strings.NewReader(this.pgpKey)
+			
+			pgpFile := &ZurichFile{
+				Path: zFile.Path + ".pgp",
 			}
+			err = PGP_Encrypt_File(src, keyReader, pgpFile.Path)
+			if err != nil {
+				log.Error(err)
+			}
+			this.pgpFiles[index] = pgpFile
+			
+			
+		}(index, zFile)
+		
+	}
+	
+	for true {
+		<- queue
+		counter--
+		if counter <= 0 {
+			break
 		}
-		keyReader := strings.NewReader(d.pgpKey)
-
-		pgpFile := &ZurichFile{
-			Path: zFile.Path + ".pgp",
-		}
-		err = PGP_Encrypt_File(src, keyReader, pgpFile.Path)
-		if err != nil {
-			ErrLogger.Println(err)
-			return err
-		}
-		d.pgpFiles[index] = pgpFile
 	}
 
 	return nil
 }
 
 //检查是否图片文件
-func (d *Zurich) isImage(filePath string) bool {
+func (this *Zurich) isImage(filePath string) bool {
 	ext := filepath.Ext(filePath)
 	for _, condition := range []string{"png", "gif", "jpg", "bmp", "jpeg"} {
 		if strings.Contains(ext, condition) {
@@ -225,16 +243,37 @@ func (d *Zurich) isImage(filePath string) bool {
 }
 
 //上传到SFTP
-func (d *Zurich) UploadToSFTP() {
-	InfoLogger.Println("begin upload 2 sftp")
-	ssh := NewSSHClient(&d.conf.SSH)
+func (this *Zurich) UploadToSFTP() {
+	log.Info("begin upload 2 sftp")
+	ssh := NewSSHClient(&this.conf.SSH)
+	queue := make(chan bool, 0)
+	counter := 0
 
-	prefixFolder := d.conf.GetDeployPath(d.deployENV)
+	prefixFolder := this.conf.GetDeployPath(this.deployENV)
 
-	for _, pgpFile := range d.pgpFiles {
-		err := ssh.UploadFile(pgpFile.Path, prefixFolder)
-		if err != nil {
-			ErrLogger.Println(err)
+	for _, pgpFile := range this.pgpFiles {
+		counter++
+		
+		go func(pgpFile *ZurichFile) {
+			defer func() {
+				queue <- true
+			}()
+			
+			log.Info("upload 2 sftp:", pgpFile.Path)
+			
+			err := ssh.UploadFile(pgpFile.Path, prefixFolder)
+			if err != nil {
+				log.Error(err)
+			}
+		}(pgpFile)
+		
+	}
+	
+	for true {
+		<- queue
+		counter--
+		if counter <= 0 {
+			break
 		}
 	}
 }

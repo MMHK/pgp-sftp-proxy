@@ -2,11 +2,10 @@
 package main
 
 import (
+	"pgp-sftp-proxy/lib"
 	"flag"
 	"fmt"
 	"runtime"
-
-	"github.com/mmhk/pgp-sftp-proxy/lib"
 )
 
 func main() {

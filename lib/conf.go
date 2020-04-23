@@ -12,14 +12,12 @@ type DeployPath struct {
 }
 
 type Config struct {
-	Listen     string     `json:"listen"`
-	TempPath   string     `json:"tmp_path"`
-	WebRoot    string     `json:"web_root"`
-	SSH        SSHItem    `json:"ssh"`
-	Deploy     DeployPath `json:"deploy_path"`
-	WebKitBin  string     `json:"webkit_bin"`
-	WebKitArgs []string   `json:"webkit_args"`
-	save_path  string
+	Listen    string     `json:"listen"`
+	TempPath  string     `json:"tmp_path"`
+	WebRoot   string     `json:"web_root"`
+	SSH       SSHItem    `json:"ssh"`
+	Deploy    DeployPath `json:"deploy_path"`
+	save_path string
 }
 
 func NewConfig(filename string) (err error, c *Config) {
@@ -32,14 +30,14 @@ func NewConfig(filename string) (err error, c *Config) {
 func (c *Config) load(filename string) error {
 	file, err := os.Open(filename)
 	if err != nil {
-		ErrLogger.Println(err)
+		log.Error(err)
 		return err
 	}
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(c)
 	if err != nil {
-		ErrLogger.Println(err)
+		log.Error(err)
 	}
 	return err
 }
@@ -47,18 +45,18 @@ func (c *Config) load(filename string) error {
 func (c *Config) Save() error {
 	file, err := os.Create(c.save_path)
 	if err != nil {
-		ErrLogger.Println(err)
+		log.Error(err)
 		return err
 	}
 	defer file.Close()
 	data, err2 := json.MarshalIndent(c, "", "    ")
 	if err2 != nil {
-		ErrLogger.Println(err2)
+		log.Error(err2)
 		return err2
 	}
 	_, err3 := file.Write(data)
 	if err3 != nil {
-		ErrLogger.Println(err3)
+		log.Error(err3)
 	}
 	return err3
 }

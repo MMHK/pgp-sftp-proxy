@@ -14,3 +14,4 @@
 .glide/
 /vendor/golang.org
 /vendor/github.com
+/vendor

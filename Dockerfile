@@ -1,7 +1,26 @@
-FROM debian:jessie
+FROM golang:1.13-alpine as builder
+
+# Add Maintainer Info
+LABEL maintainer="Sam Zhou <sam@mixmedia.com>"
+
+# Set the Current Working Directory inside the container
+WORKDIR /app/pgp-sftp-proxy
+
+# Copy the source from the current directory to the Working Directory inside the container
+COPY . .
+
+# Build the Go app
+RUN go version \
+ && export GO111MODULE=on \
+ && export GOPROXY=https://goproxy.io \
+ && go mod vendor \
+ && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pgp-sftp-proxy
+
+######## Start a new stage from scratch #######
+FROM alpine:latest  
 
 ENV HOST=0.0.0.0:3333 \
- ROOT=/usr/local/pgp-sftp-proxy/web_root \
+ ROOT=/root/pgp-sftp-proxy/web_root \
  TEMP=/tmp \
  SSH_HOST= \
  SSH_USER= \
@@ -10,49 +29,23 @@ ENV HOST=0.0.0.0:3333 \
  DEPLOY_PATH_DEV=/Interface_Development_Files/ \
  DEPLOY_PATH_PRODUCTION=/Interface_Production_Files/ \
  DEPLOY_PATH_TESTING=/Interface_UAT_Files/ 
- 
-WORKDIR /root/src/github.com/mmhk/pgp-sftp-proxy
 
-COPY . .
+RUN apk --no-cache add ca-certificates \
+    && apk add --update python python-dev py-pip build-base libintl \
+    && apk add --virtual gettext \
+    && cp /usr/bin/envsubst /usr/local/bin/envsubst \
+    && pip install dumb-init \
+    && apk del python  python-dev py-pip build-base gettext \
+    && rm -rf /var/cache/apk/*
 
-RUN set -x  \
-# Install runtime dependencies
- && apt-get update \
- && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        git \
-        gettext-base \
-# install go runtime
- && curl -O https://dl.google.com/go/go1.9.4.linux-amd64.tar.gz \
- && tar xvf go1.9.4.linux-amd64.tar.gz \
- && mv ./go /usr/local/go \
-# build pgp-sftp-proxy
- && export GOPATH=/root \
- && export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin \
- && go get -v \
- && CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o pgp-sftp-proxy . \
- && mkdir /usr/local/pgp-sftp-proxy \
- && mv web_root /usr/local/pgp-sftp-proxy/web_root \
- && mv config.json /usr/local/pgp-sftp-proxy/config.json \
- && mv pgp-sftp-proxy /usr/bin/pgp-sftp-proxy \
-# Install dumb-init (to handle PID 1 correctly).
-# https://github.com/Yelp/dumb-init
- && curl -Lo /tmp/dumb-init.deb https://github.com/Yelp/dumb-init/releases/download/v1.1.3/dumb-init_1.1.3_amd64.deb \
- && dpkg -i /tmp/dumb-init.deb \
-# Clean up
- && apt-get purge --auto-remove -y \
-        curl git \
- && apt-get clean \
- && rm -rf /tmp/* /var/lib/apt/lists/* \
- && rm -Rf /root/src \
- && rm -Rf /root/bin \
- && rm -Rf /root/pkg \
- && rm -Rf /usr/local/go 
+WORKDIR /root/
+
+# Copy the Pre-built binary file from the previous stage
+COPY --from=builder /app/pgp-sftp-proxy .
  
 EXPOSE 3333
 
 ENTRYPOINT ["dumb-init"]
 
-CMD envsubst < /usr/local/pgp-sftp-proxy/config.json > /usr/local/pgp-sftp-proxy/temp.json \
- && /usr/bin/pgp-sftp-proxy -c /usr/local/pgp-sftp-proxy/temp.json
+CMD /usr/local/bin/envsubst < /root/pgp-sftp-proxy/config.json > /root/pgp-sftp-proxy/temp.json \
+ && /root/pgp-sftp-proxy/pgp-sftp-proxy -c /root/pgp-sftp-proxy/temp.json

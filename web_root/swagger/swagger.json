@@ -1,0 +1,210 @@
+{
+  "consumes": [
+    "multipart/form-data",
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "description": "Package Zurich PGP files upload API",
+    "version": "1.0.1"
+  },
+  "host": "API_HOST",
+  "basePath": "/",
+  "paths": {
+    "/encrypt": {
+      "post": {
+        "description": "Encrypt source file to PGP",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json",
+          "text/plain; charset=utf-8"
+        ],
+        "operationId": "encrypt",
+        "parameters": [
+          {
+            "type": "file",
+            "description": "The file to upload.",
+            "name": "upload",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "textarea",
+            "description": "PGP public key",
+            "name": "key",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/multiple/upload": {
+      "post": {
+        "description": "Encrypt source file to PGP and Upload to SFTP",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "multipleUpload",
+        "parameters": [
+          {
+            "description": "request body",
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/MultipleBody"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/upload": {
+      "post": {
+        "description": "Encrypt source file to PGP and Upload to SFTP",
+        "consumes": [
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "upload",
+        "parameters": [
+          {
+            "type": "file",
+            "description": "The file to upload.",
+            "name": "upload",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "type": "string",
+            "format": "textarea",
+            "description": "PGP public key",
+            "name": "key",
+            "in": "formData",
+            "required": true
+          },
+          {
+            "enum": [
+              "dev",
+              "pro",
+              "test"
+            ],
+            "type": "string",
+            "description": "sftp remote save folder",
+            "name": "deploy",
+            "in": "formData",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Error"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "MultipleBody": {
+      "type": "object",
+      "required": [
+        "files",
+        "key",
+        "env"
+      ],
+      "properties": {
+        "env": {
+          "description": "sftp remote save folder",
+          "type": "string",
+          "enum": [
+            "dev",
+            " pro",
+            " test"
+          ],
+          "x-go-name": "ENV"
+        },
+        "files": {
+          "description": "upload files",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ZurichFile"
+          },
+          "x-go-name": "Files"
+        },
+        "key": {
+          "description": "PGP public key",
+          "type": "string",
+          "x-go-name": "PGPKey"
+        },
+        "notify": {
+          "description": "notify URL",
+          "type": "string",
+          "x-go-name": "NotifyURL"
+        }
+      },
+      "x-go-package": "pgp-sftp-proxy/lib"
+    },
+    "ZurichFile": {
+      "type": "object",
+      "required": [
+        "name",
+        "url"
+      ],
+      "properties": {
+        "Path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string",
+          "x-go-name": "Name"
+        },
+        "url": {
+          "type": "string",
+          "x-go-name": "Url"
+        }
+      },
+      "x-go-package": "pgp-sftp-proxy/lib"
+    }
+  },
+  "responses": {
+    "ResultResponse": {
+      "headers": {
+        "error": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

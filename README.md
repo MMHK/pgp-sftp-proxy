@@ -8,13 +8,16 @@ sftp http proxy with PGP encrypt
 - 上传文件并PGP加密， 到Zurich的sftp
 - 自动识别图片文件，将图片文件转换成PDF后再PGP加密上传
 - 自带http server，使用http rest API操作
-- API文档请编译后执行 `http://127.0.0.1:3333/sample/api.html`
+- API文档请编译后执行 `http://127.0.0.1:3333/swagger/index.html`
+
+外部依赖：
+- [gopdf](https://github.com/signintech/gopdf) 用于将图片文件转换成PDF
 
 ## 编译
 ----
-- 安装Golang环境, Go >= 1.9
+- 安装Golang环境, Go >= 1.12
 - checkout 源码
-- 在源码目录 执行` go get -v `签出所有的依赖库
+- 在源码目录 执行` go mod vendor `签出所有的依赖库
 - ` go build -o pgp-sftp-proxy . ` 编译成二进制可执行文件
 - 执行文件 ` pgp-sftp-proxy -c ./config.json`
 
@@ -46,8 +49,20 @@ sftp http proxy with PGP encrypt
   这些文件一般会在使用后马上删除，不过也不排除程序问题没有删除的文件。
 - `web_root` http service使用的webroot
 - `ssh` Zurich sftp的相关登录信息
+   - `host` sftp host with port (eg: 127.0.0.1:22)
+   - `user` sftp login username
+   - `password` sftp login pwd
+   - `key` sftp login private key file path
 - `deploy_path`  Zurich sftp的发布路径，用于区分不同的运行环境，一般不用更改
 
+
+## 生成 `swagger` 文档
+
+- 安装 [swagger-go](https://github.com/go-swagger/go-swagger)
+- 在项目目录执行
+```bash
+swagger generate spec -o ./web_root/swagger/swagger.json
+```
 
 ## Docker
 
