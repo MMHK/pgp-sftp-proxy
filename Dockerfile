@@ -32,10 +32,8 @@ ENV HOST=0.0.0.0:3333 \
 
 RUN apk --no-cache add ca-certificates \
     && apk add --update python python-dev py-pip build-base \
-    && apk add gettext libintl \
-    && mv /usr/bin/envsubst /usr/local/sbin/envsubst \
     && pip install dumb-init \
-    && apk del python  python-dev py-pip build-base gettext \
+    && apk del python  python-dev py-pip build-base \
     && rm -rf /var/cache/apk/* \
     && rm -rf /tmp/*
 
@@ -48,5 +46,6 @@ EXPOSE 3333
 
 ENTRYPOINT ["dumb-init"]
 
-CMD /usr/local/sbin/envsubst < /root/pgp-sftp-proxy/config.json > /root/pgp-sftp-proxy/temp.json \
+CMD if ! which envsubst > /dev/null 2>&1; then envsubst() { while read line; do line=$( echo $line | sed 's/"/\\"/g' ); eval echo $line; done; }; fi \
+ && /usr/local/sbin/envsubst < /root/pgp-sftp-proxy/config.json > /root/pgp-sftp-proxy/temp.json \
  && /root/pgp-sftp-proxy/pgp-sftp-proxy -c /root/pgp-sftp-proxy/temp.json
