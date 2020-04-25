@@ -40,12 +40,14 @@ RUN apk --no-cache add ca-certificates \
 WORKDIR /root/
 
 # Copy the Pre-built binary file from the previous stage
-COPY --from=builder /app/pgp-sftp-proxy .
+COPY --from=builder /app/pgp-sftp-proxy/pgp-sftp-proxy .
+COPY --from=builder /app/pgp-sftp-proxy/web_root ./
+COPY --from=builder /app/pgp-sftp-proxy/config.json .
  
 EXPOSE 3333
 
 ENTRYPOINT ["dumb-init"]
 
 CMD if ! which envsubst > /dev/null 2>&1; then envsubst() { while read line; do line=$( echo $line | sed 's/"/\\"/g' ); eval echo $line; done; }; fi \
- && /usr/local/sbin/envsubst < /root/pgp-sftp-proxy/config.json > /root/pgp-sftp-proxy/temp.json \
+ && envsubst < /root/pgp-sftp-proxy/config.json > /root/pgp-sftp-proxy/temp.json \
  && /root/pgp-sftp-proxy/pgp-sftp-proxy -c /root/pgp-sftp-proxy/temp.json
