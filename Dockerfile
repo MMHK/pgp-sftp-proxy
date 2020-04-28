@@ -19,7 +19,7 @@ RUN go version \
 ######## Start a new stage from scratch #######
 FROM alpine:latest  
 
-ENV HOST=0.0.0.0:3333 \
+ENV HOST=0.0.0.0:3334 \
  ROOT=/root/pgp-sftp-proxy/web_root \
  TEMP=/tmp \
  SSH_HOST= \

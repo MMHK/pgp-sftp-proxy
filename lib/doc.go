@@ -1,4 +1,4 @@
-//Package Zurich PGP files upload API
+//Package DahSing PGP files upload API
 //
 //	Schemes: http, https
 //	Host: API_HOST
@@ -22,10 +22,6 @@ type ResultResponse struct {
 	Error  string `json:"error"`
 }
 
-// swagger:parameters hello
-type JSONBody struct {
-	Body *MultipleBody
-}
 
 // swagger:operation POST /encrypt encrypt
 //
@@ -90,23 +86,3 @@ type JSONBody struct {
 //   500:
 //     description: Error
 
-// swagger:operation POST /multiple/upload multipleUpload
-//
-// Encrypt source file to PGP and Upload to SFTP
-//
-// ---
-// consumes:
-//   - application/json
-// produces:
-//   - application/json
-// parameters:
-// - in: body
-//   name: body
-//   description: request body
-//   schema:
-//	   "$ref": "#/definitions/MultipleBody"
-// responses:
-//   200:
-//     description: OK
-//   500:
-//     description: Error

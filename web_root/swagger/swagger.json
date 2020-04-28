@@ -12,7 +12,7 @@
   ],
   "swagger": "2.0",
   "info": {
-    "description": "Package Zurich PGP files upload API",
+    "description": "Package DahSing PGP files upload API",
     "version": "1.0.1"
   },
   "host": "API_HOST",
@@ -44,36 +44,6 @@
             "name": "key",
             "in": "formData",
             "required": true
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          },
-          "500": {
-            "description": "Error"
-          }
-        }
-      }
-    },
-    "/multiple/upload": {
-      "post": {
-        "description": "Encrypt source file to PGP and Upload to SFTP",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "operationId": "multipleUpload",
-        "parameters": [
-          {
-            "description": "request body",
-            "name": "body",
-            "in": "body",
-            "schema": {
-              "$ref": "#/definitions/MultipleBody"
-            }
           }
         ],
         "responses": {
@@ -134,68 +104,6 @@
           }
         }
       }
-    }
-  },
-  "definitions": {
-    "MultipleBody": {
-      "type": "object",
-      "required": [
-        "files",
-        "key",
-        "env"
-      ],
-      "properties": {
-        "env": {
-          "description": "sftp remote save folder",
-          "type": "string",
-          "enum": [
-            "dev",
-            " pro",
-            " test"
-          ],
-          "x-go-name": "ENV"
-        },
-        "files": {
-          "description": "upload files",
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ZurichFile"
-          },
-          "x-go-name": "Files"
-        },
-        "key": {
-          "description": "PGP public key",
-          "type": "string",
-          "x-go-name": "PGPKey"
-        },
-        "notify": {
-          "description": "notify URL",
-          "type": "string",
-          "x-go-name": "NotifyURL"
-        }
-      },
-      "x-go-package": "pgp-sftp-proxy/lib"
-    },
-    "ZurichFile": {
-      "type": "object",
-      "required": [
-        "name",
-        "url"
-      ],
-      "properties": {
-        "Path": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string",
-          "x-go-name": "Name"
-        },
-        "url": {
-          "type": "string",
-          "x-go-name": "Url"
-        }
-      },
-      "x-go-package": "pgp-sftp-proxy/lib"
     }
   },
   "responses": {

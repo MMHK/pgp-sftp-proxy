@@ -1,17 +1,14 @@
-# pgp-sftp-proxy
+# pgp-sftp-proxy [for DahSing]
 sftp http proxy with PGP encrypt
 
 
 具体实现的功能如下:
 
 - PGP加密文件
-- 上传文件并PGP加密， 到Zurich的sftp
-- 自动识别图片文件，将图片文件转换成PDF后再PGP加密上传
+- 上传文件并PGP加密， 到`DahSing`的 `SFTP`
 - 自带http server，使用http rest API操作
-- API文档请编译后执行 `http://127.0.0.1:3333/swagger/index.html`
+- API文档请编译后执行 `http://127.0.0.1:3334/swagger/index.html`
 
-外部依赖：
-- [gopdf](https://github.com/signintech/gopdf) 用于将图片文件转换成PDF
 
 ## 编译
 ----
@@ -25,9 +22,9 @@ sftp http proxy with PGP encrypt
 ----
 该项目使用json文件进行配置，具体例子如下
 
-```JS
+```json
 {
-    "listen": "127.0.0.1:3333", //服务绑定的host
+    "listen": "127.0.0.1:3334", //服务绑定的host
     "tmp_path": "./web_root/temp", //文件缓存目录
 	"web_root" : "./web_root", //API 文档说明目录
 	"ssh" : {
@@ -36,24 +33,29 @@ sftp http proxy with PGP encrypt
 		"password" : "", //ssh 远程登录密码
 		"key" : "" //ssh 远程登录密匙
 	},
-	"deploy_path" : {
-		"dev" : "/Interface_Development_Files/", //sftp 远程开发目录文件夹
-		"pro" : "/Interface_Production_Files/", //sftp 远程产品目录文件夹
-		"test" : "/Interface_UAT_Files/" //sftp 远程测试目录文件夹
-	}
+	"time-range": [
+	  {
+	    "begin": "00:00",
+	    "end": "18:00"
+	  },
+	  {
+	    "begin": "22:00",
+	    "end": "00:00"
+	  }
+	]
 }
 ```
 
 - `listen` 启动http service时绑定的地址
-- `tmp_path` 临时文件的保存路径，一般临时包括：上传图片的原图、待上传到Zurich的文件、待转换的HTML文件，
+- `tmp_path` 临时文件的保存路径，一般临时包括：上传图片的原图、待上传到DahSing的文件、待转换的HTML文件，
   这些文件一般会在使用后马上删除，不过也不排除程序问题没有删除的文件。
 - `web_root` http service使用的webroot
-- `ssh` Zurich sftp的相关登录信息
+- `ssh` DahSing sftp的相关登录信息
    - `host` sftp host with port (eg: 127.0.0.1:22)
    - `user` sftp login username
    - `password` sftp login pwd
    - `key` sftp login private key file path
-- `deploy_path`  Zurich sftp的发布路径，用于区分不同的运行环境，一般不用更改
+- `time-range`  DahSing 限定可以上传的时间段，用于避开DahSing 处理 sftp 的时间段 
 
 
 ## 生成 `swagger` 文档
@@ -70,19 +72,16 @@ swagger generate spec -o ./web_root/swagger/swagger.json
 
 - 签出docker 镜像
 ```
-docker pull mmhk/pgp-sftp-proxy
+docker pull mmhk/pgp-sftp-proxy:dahsing
 ```
 - 环境变量，具体请参考 `config.json` 的说明。
-  - HOST，service绑定的服务地址及端口，默认为 `127.0.0.1:3333`
+  - HOST，service绑定的服务地址及端口，默认为 `127.0.0.1:3334`
   - ROOT, swagger-ui 存放的本地目录，可以设置空来屏蔽 swagger-ui 的显示， 默认为 `/usr/local/mmhk/pgp-sftp-proxy/web_root`
   - SSH_HOST, SSH远程访问host
   - SSH_USER, SSH远程登录账户
   - SSH_PWD, SSH远程登录密码
   - SSH_KEY, SSH远程登录密匙，当sftp 使用密匙登录的时候使用，是一个本地文件路径。（注意是容器中的路径，应该使用 `-v`参数映射进容器）
-  - DEPLOY_PATH_DEV, sftp 远程开发目录文件夹, 默认值：`/Interface_Development_Files/`
-  - DEPLOY_PATH_PRODUCTION, sftp 远程产品目录文件夹, 默认值：`/Interface_Production_Files/`
-  - DEPLOY_PATH_TESTING, sftp 远程测试目录文件夹, 默认值：`/Interface_UAT_Files/`
 - 运行
 ```
-docker run --name mmhk/pgp-sftp-proxy -p 3333:3333 mmhk/mmhk/pgp-sftp-proxy:latest
+docker run --name mmhk/pgp-sftp-proxy:dahsing -p 3334:3334 mmhk/mmhk/pgp-sftp-proxy:latest
 ```
