@@ -11,7 +11,7 @@ func getLocalPath(file string) string {
 }
 
 func loadConfig() (*Config, error) {
-	err, conf := NewConfig(getLocalPath("../config.json"))
+	err, conf := NewConfig(getLocalPath("../conf.json"))
 	if err != nil {
 		return nil, err
 	}

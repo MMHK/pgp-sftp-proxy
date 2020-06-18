@@ -1,23 +1,45 @@
 package lib
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
+	"time"
 )
 
-type DeployPath struct {
-	Development string `json:"dev"`
-	Production  string `json:"pro"`
-	Testing     string `json:"test"`
+type TimeRange struct {
+	BeginRaw string `json:"begin"`
+	EndRaw   string `json:"end"`
+}
+
+func (this *TimeRange) GetTime(raw string) time.Time {
+	buf := new(bytes.Buffer)
+	buf.WriteString(time.Now().Format("2006-01-02 "))
+	buf.WriteString(raw)
+
+	t, err := time.Parse("2006-01-02 03:04:05", buf.String())
+	if err != nil {
+		log.Error(err)
+		return time.Now().Add(time.Hour * -24);
+	}
+
+	return t;
+}
+
+func (this *TimeRange) GetBegin() time.Time {
+	return this.GetTime(this.BeginRaw)
+}
+
+func (this *TimeRange) GetEnd() time.Time {
+
 }
 
 type Config struct {
-	Listen    string     `json:"listen"`
-	TempPath  string     `json:"tmp_path"`
-	WebRoot   string     `json:"web_root"`
-	SSH       SSHItem    `json:"ssh"`
-	Deploy    DeployPath `json:"deploy_path"`
-	save_path string
+	Listen        string       `json:"listen"`
+	WebRoot       string       `json:"web_root"`
+	SSH           SSHItem      `json:"ssh"`
+	AvailableTime []*TimeRange `json:"time-range"`
+	save_path     string
 }
 
 func NewConfig(filename string) (err error, c *Config) {
@@ -62,12 +84,5 @@ func (c *Config) Save() error {
 }
 
 func (c *Config) GetDeployPath(deploy_type string) string {
-	switch deploy_type {
-	case "dev":
-		return c.Deploy.Development
-	case "pro":
-		return c.Deploy.Production
-	}
-
-	return c.Deploy.Testing
+	return "test"
 }
