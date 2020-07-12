@@ -1,0 +1,16 @@
+{
+    "listen": "127.0.0.1:3333",
+    "tmp_path": "./temp",
+	"web_root" : "./web_root",
+	"ssh" : {
+		"host" : "192.168.33.6:222",
+		"user" : "temp",
+		"password" : "temp",
+		"key" : ""
+	},
+	"deploy_path" : {
+		"dev" : "/webroot/Interface_Development_Files/",
+		"pro" : "/webroot/Interface_Production_Files/",
+		"test" : "/webroot/Interface_UAT_Files/"
+	}
+}

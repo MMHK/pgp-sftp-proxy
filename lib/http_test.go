@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func getHttpServer() (*HTTPService, error) {
@@ -92,6 +93,8 @@ func Test_Multiple(t *testing.T) {
 		t.Fail()
 		return
 	}
+	
+	time.Sleep(time.Second * 20)
 	
 	t.Log(string(body))
 }
