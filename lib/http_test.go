@@ -22,7 +22,7 @@ func getHttpServer() (*HTTPService, error) {
 }
 
 func getMultipart(parts map[string]string) (io.Reader, string, error) {
-	testUploadFile := getLocalPath("../test/M_Article_Zurich_ca.gif")
+	testUploadFile := getLocalPath("../test/Sample.jpg")
 	requestReader := new(bytes.Buffer)
 	bodyWriter := multipart.NewWriter(requestReader)
 	part, err := bodyWriter.CreateFormFile("upload", filepath.Base(testUploadFile))

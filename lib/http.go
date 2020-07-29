@@ -1,13 +1,14 @@
 package lib
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime/multipart"
 	"net/http"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -16,10 +17,11 @@ import (
 type HTTPService struct {
 	config *Config
 }
-
+// swagger:response ServiceResult
 type ServiceResult struct {
-	Status bool   `json:"status"`
-	Error  string `json:"error"`
+	Status bool        `json:"status"`
+	Data   interface{} `json:"data"`
+	Error  string      `json:"error"`
 }
 
 func NewHTTP(conf *Config) *HTTPService {
@@ -66,74 +68,62 @@ func GetMimeType(src *multipart.FileHeader) (string, string, error) {
 
 func (this *HTTPService) Upload(writer http.ResponseWriter, request *http.Request) {
 	request.ParseMultipartForm(32 << 20)
-	file, header, err := request.FormFile("upload")
+	uploadFile, header, err := request.FormFile("upload")
 	if err != nil {
 		log.Error(err)
 		this.ResponseError(err, writer, 500)
 		return
 	}
-	defer file.Close()
+	defer uploadFile.Close()
 
 	key := request.FormValue("key")
-	deploy_type := request.FormValue("deploy")
 
-	var src_data []byte
 	_, filename, err := GetMimeType(header)
 	log.Info("filename:", filename)
 
-	src_data, err = ioutil.ReadAll(file)
+	keyReader := strings.NewReader(key)
+	remoteFile := filepath.Join(this.config.SFTP.UploadDir, fmt.Sprintf("%s.pgp", filename))
+	reader, err := PGP_Encrypt_Reader(uploadFile, keyReader)
 	if err != nil {
 		log.Error(err)
 		this.ResponseError(err, writer, 500)
 		return
 	}
 
-	key_reader := strings.NewReader(key)
-	remoteFile := path.Join(this.config.GetDeployPath(deploy_type), filename+".pgp")
-	bin, err := PGP_Encrypt(src_data, key_reader)
+	ssh := NewStorage(&this.config.SSH)
+	err = ssh.PutStream(remoteFile, reader)
 	if err != nil {
 		log.Error(err)
 		this.ResponseError(err, writer, 500)
 		return
 	}
 
-	ssh := NewSSHClient(&this.config.SSH)
-	err = ssh.Put(remoteFile, strings.NewReader(bin))
-	if err != nil {
-		log.Error(err)
-		this.ResponseError(err, writer, 500)
-		return
-	}
-
-	fmt.Fprintf(writer, "{\"status\":1}")
+	this.ResponseJSON(true, writer)
 }
 
 func (this *HTTPService) Encrypt(writer http.ResponseWriter, request *http.Request) {
 	request.ParseMultipartForm(32 << 20)
-	file, _, err := request.FormFile("upload")
+	uploadFile, _, err := request.FormFile("upload")
 	if err != nil {
 		log.Error(err)
 		http.Error(writer, err.Error(), 500)
 		return
 	}
-	defer file.Close()
+	defer uploadFile.Close()
 
 	key := request.FormValue("key")
-	var src_data []byte
-	src_data, err = ioutil.ReadAll(file)
-	if err != nil {
-		log.Error(err)
-		this.ResponseError(err, writer, 500)
-		return
-	}
 	keyReader := strings.NewReader(key)
-	encodeEntry, err := PGP_Encrypt(src_data, keyReader)
+	reader, err := PGP_Encrypt_Reader(uploadFile, keyReader)
 	if err != nil {
 		log.Error(err)
 		this.ResponseError(err, writer, 500)
 		return
 	}
-	fmt.Fprintf(writer, encodeEntry)
+	_, err = io.Copy(writer, reader)
+	if err != nil {
+		log.Error(err)
+		return
+	}
 }
 
 func (this *HTTPService) ResponseError(err error, writer http.ResponseWriter, StatusCode int) {
@@ -142,4 +132,14 @@ func (this *HTTPService) ResponseError(err error, writer http.ResponseWriter, St
 	writer.Header().Add("Content-Type", "application/json")
 
 	http.Error(writer, string(json_str), StatusCode)
+}
+
+func (this *HTTPService) ResponseJSON(src interface{}, writer http.ResponseWriter) {
+	serverResult := &ServiceResult{Data: src, Status: true}
+	bin, _ := json.Marshal(serverResult)
+	reader := bytes.NewReader(bin)
+
+	writer.Header().Add("Content-Type", "application/json")
+
+	io.Copy(writer, reader)
 }

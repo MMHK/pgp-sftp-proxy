@@ -15,7 +15,7 @@
 //	swagger:meta
 package lib
 
-// swagger:response ResultResponse
+
 type ResultResponse struct {
 	// in: body
 	Status bool   `json:"status"`

@@ -31,13 +31,19 @@ func (this *TimeRange) GetBegin() time.Time {
 }
 
 func (this *TimeRange) GetEnd() time.Time {
+	return this.GetTime(this.EndRaw)
+}
 
+type SftpOptions struct {
+	DownloadDir string `json:"download-dir"`
+	UploadDir   string `json:"upload-dir"`
 }
 
 type Config struct {
 	Listen        string       `json:"listen"`
 	WebRoot       string       `json:"web_root"`
 	SSH           SSHItem      `json:"ssh"`
+	SFTP          *SftpOptions `json:"sftp"`
 	AvailableTime []*TimeRange `json:"time-range"`
 	save_path     string
 }

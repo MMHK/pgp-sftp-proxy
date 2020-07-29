@@ -2,10 +2,14 @@
   "listen": "127.0.0.1:3334",
   "web_root" : "./web_root",
   "ssh" : {
-    "host" : "",
-    "user" : "",
-    "password" : "",
+    "host" : "192.168.33.6:222",
+    "user" : "temp",
+    "password" : "temp",
     "key" : ""
+  },
+  "sftp": {
+    "upload-dir": "/webroot/upload",
+    "download-dir": "/webroot/download"
   },
   "time-range": [
     {

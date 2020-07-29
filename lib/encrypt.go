@@ -9,12 +9,11 @@ import (
 	"os"
 )
 
-func PGP_Encrypt(src []byte, PublicKey io.Reader) (EncryptEntry string, err error) {
-
+func PGP_Encrypt_Reader(reader io.Reader, PublicKey io.Reader) (*bytes.Buffer, error) {
 	entryList, err := openpgp.ReadArmoredKeyRing(PublicKey)
 	if err != nil {
 		log.Error(err)
-		return
+		return nil, err
 	}
 	buffer := new(bytes.Buffer)
 
@@ -22,33 +21,38 @@ func PGP_Encrypt(src []byte, PublicKey io.Reader) (EncryptEntry string, err erro
 	cWriter, err := armor.Encode(buffer, "PGP MESSAGE", header)
 	if err != nil {
 		log.Error(err)
-		return
+		return nil, err
 	}
+	defer cWriter.Close()
+
 	writer, err := openpgp.Encrypt(cWriter, entryList, nil, nil, nil)
 	if err != nil {
 		log.Error(err)
-		return
+		return nil, err
 	}
-	_, err = writer.Write(src)
+	defer writer.Close()
+
+	_, err = io.Copy(writer, reader)
 	if err != nil {
 		log.Error(err)
-		return
+		return nil, err
 	}
 
-	writer.Close()
+	return buffer, nil
+}
 
-	cWriter.Close()
+func PGP_Encrypt(src []byte, PublicKey io.Reader) (EncryptEntry string, err error) {
+	reader := bytes.NewReader(src)
+	buffer, err := PGP_Encrypt_Reader(reader, PublicKey)
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
 
-	EncryptEntry = buffer.String()
-	return
+	return buffer.String(), nil
 }
 
 func PGP_Encrypt_File(src []byte, PublicKey io.Reader, save_path string) (err error) {
-	enrtylist, err := openpgp.ReadArmoredKeyRing(PublicKey)
-	if err != nil {
-		log.Error(err)
-		return
-	}
 	save_file, err := os.Create(save_path)
 	if err != nil {
 		log.Error(err)
@@ -56,25 +60,19 @@ func PGP_Encrypt_File(src []byte, PublicKey io.Reader, save_path string) (err er
 	}
 	defer save_file.Close()
 
-	header := map[string]string{"Creator": "MixMedia"}
-	cWriter, err := armor.Encode(save_file, "PGP MESSAGE", header)
+	reader := bytes.NewReader(src)
+
+	buffer, err := PGP_Encrypt_Reader(reader, PublicKey)
 	if err != nil {
 		log.Error(err)
-		return
-	}
-	writer, err := openpgp.Encrypt(cWriter, enrtylist, nil, nil, nil)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	_, err = writer.Write(src)
-	if err != nil {
-		log.Error(err)
-		return
+		return err
 	}
 
-	writer.Close()
+	_, err = io.Copy(save_file, buffer)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
 
-	cWriter.Close()
-	return
+	return nil
 }
