@@ -74,12 +74,6 @@ type ResultResponse struct {
 //   required: true
 //   format: textarea
 //   description: PGP public key
-// - name: deploy
-//   type: string
-//   in: formData
-//   required: true
-//   enum: [dev, pro, test]
-//   description: sftp remote save folder
 // responses:
 //   200:
 //     description: OK

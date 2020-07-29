@@ -8,9 +8,18 @@
 		"password" : "${SSH_PWD}",
 		"key" : "${SSH_KEY}"
 	},
-	"deploy_path" : {
-		"dev" : "${DEPLOY_PATH_DEV}",
-		"pro" : "${DEPLOY_PATH_PRODUCTION}",
-		"test" : "${DEPLOY_PATH_TESTING}"
-	}
+	"sftp": {
+		"upload-dir": "/in",
+		"download-dir": "/out"
+	},
+	"time-range": [
+		{
+			"begin": "00:00",
+			"end": "18:00"
+		},
+		{
+			"begin": "22:00",
+			"end": "00:00"
+		}
+	]
 }

@@ -17,7 +17,13 @@ func (this *TimeRange) GetTime(raw string) time.Time {
 	buf.WriteString(time.Now().Format("2006-01-02 "))
 	buf.WriteString(raw)
 
-	t, err := time.Parse("2006-01-02 03:04:05", buf.String())
+	//log.Debug(buf.String())
+	timezone, err := time.LoadLocation("Asia/Hong_Kong")
+	if err != nil {
+		log.Error(err)
+		timezone = time.FixedZone("GMT", 8)
+	}
+	t, err := time.ParseInLocation("2006-01-02 15:04", buf.String(), timezone)
 	if err != nil {
 		log.Error(err)
 		return time.Now().Add(time.Hour * -24);
@@ -32,6 +38,19 @@ func (this *TimeRange) GetBegin() time.Time {
 
 func (this *TimeRange) GetEnd() time.Time {
 	return this.GetTime(this.EndRaw)
+}
+
+func CanUpload(settings []*TimeRange) bool {
+	now := time.Now()
+
+	for _, setting := range settings {
+		//log.Debug(now, setting.GetBegin(), setting.GetEnd())
+		if now.After(setting.GetBegin()) && now.Before(setting.GetEnd()) {
+			return false
+		}
+	}
+
+	return true
 }
 
 type SftpOptions struct {

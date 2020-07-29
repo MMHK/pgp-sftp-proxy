@@ -63,10 +63,16 @@ func GetMimeType(src *multipart.FileHeader) (string, string, error) {
 		return e[0], src.Filename, nil
 	}
 
-	return "", "", errors.New("Not Found MimeInfo")
+	return "", "", errors.New("Not Found MimeInfO")
 }
 
 func (this *HTTPService) Upload(writer http.ResponseWriter, request *http.Request) {
+	if !CanUpload(this.config.AvailableTime) {
+		this.ResponseError(errors.New("out of office time"),
+			writer, 500)
+		return
+	}
+
 	request.ParseMultipartForm(32 << 20)
 	uploadFile, header, err := request.FormFile("upload")
 	if err != nil {

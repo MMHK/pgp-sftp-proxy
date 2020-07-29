@@ -81,18 +81,6 @@
             "name": "key",
             "in": "formData",
             "required": true
-          },
-          {
-            "enum": [
-              "dev",
-              "pro",
-              "test"
-            ],
-            "type": "string",
-            "description": "sftp remote save folder",
-            "name": "deploy",
-            "in": "formData",
-            "required": true
           }
         ],
         "responses": {
@@ -107,10 +95,17 @@
     }
   },
   "responses": {
-    "ResultResponse": {
+    "ServiceResult": {
+      "schema": {
+        "type": "object"
+      },
       "headers": {
+        "data": {},
         "error": {
           "type": "string"
+        },
+        "status": {
+          "type": "boolean"
         }
       }
     }

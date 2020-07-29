@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	conf_path := flag.String("c", "config.json", "config json file")
+	conf_path := flag.String("c", "conf.json", "config json file")
 	flag.Parse()
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
