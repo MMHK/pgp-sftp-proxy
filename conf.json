@@ -12,6 +12,10 @@
     "upload-dir": "/webroot/upload",
     "download-dir": "/webroot/download"
   },
+  "pgp": {
+    "public-key": "./test/test-key.pem",
+    "private-key": "./test/test-private-key.pem"
+  },
   "time-range": [
     {
       "begin": "17:55",

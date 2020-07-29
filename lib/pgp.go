@@ -41,6 +41,28 @@ func PGP_Encrypt_Reader(reader io.Reader, PublicKey io.Reader) (*bytes.Buffer, e
 	return buffer, nil
 }
 
+func PGP_Decrypt_Reader(decryptedMsg io.Reader, PrivateKey io.Reader) (io.Reader, error) {
+	entryList, err := openpgp.ReadArmoredKeyRing(PrivateKey)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	block, err := armor.Decode(decryptedMsg)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	msgDesc, err := openpgp.ReadMessage(block.Body, entryList, nil, nil)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return msgDesc.UnverifiedBody, nil
+}
+
 func PGP_Encrypt(src []byte, PublicKey io.Reader) (EncryptEntry string, err error) {
 	reader := bytes.NewReader(src)
 	buffer, err := PGP_Encrypt_Reader(reader, PublicKey)

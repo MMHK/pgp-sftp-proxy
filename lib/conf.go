@@ -58,11 +58,18 @@ type SftpOptions struct {
 	UploadDir   string `json:"upload-dir"`
 }
 
+type PGPOption struct {
+	PublicKeyPath  string `json:"public-key"`
+	PrivateKeyPath string `json:"private-key"`
+}
+
 type Config struct {
 	Listen        string       `json:"listen"`
 	WebRoot       string       `json:"web_root"`
+	TempDir       string       `json:"tmp_path"`
 	SSH           SSHItem      `json:"ssh"`
 	SFTP          *SftpOptions `json:"sftp"`
+	PGP           *PGPOption   `json:"pgp"`
 	AvailableTime []*TimeRange `json:"time-range"`
 	save_path     string
 }
