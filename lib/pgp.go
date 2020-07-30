@@ -9,7 +9,20 @@ import (
 	"os"
 )
 
-func PGP_Encrypt_Reader(reader io.Reader, PublicKey io.Reader) (*bytes.Buffer, error) {
+
+
+const DECRYPTED_MSG_TYPE_BASE64 = "base64"
+const DECRYPTED_MSG_TYPE_BINARY = "binary"
+
+func PGP_Encrypt_Ascii_Armor_Reader(reader io.Reader, PublicKey io.Reader) (*bytes.Buffer, error) {
+	return PGP_Encrypt_Reader(reader, PublicKey, DECRYPTED_MSG_TYPE_BASE64)
+}
+
+func PGP_Encrypt_Binary_Reader(reader io.Reader, PublicKey io.Reader) (*bytes.Buffer, error) {
+	return PGP_Encrypt_Reader(reader, PublicKey, DECRYPTED_MSG_TYPE_BINARY)
+}
+
+func PGP_Encrypt_Reader(reader io.Reader, PublicKey io.Reader, outType string) (*bytes.Buffer, error) {
 	entryList, err := openpgp.ReadArmoredKeyRing(PublicKey)
 	if err != nil {
 		log.Error(err)
@@ -17,15 +30,21 @@ func PGP_Encrypt_Reader(reader io.Reader, PublicKey io.Reader) (*bytes.Buffer, e
 	}
 	buffer := new(bytes.Buffer)
 
-	header := map[string]string{"Creator": "MixMedia"}
-	cWriter, err := armor.Encode(buffer, "PGP MESSAGE", header)
-	if err != nil {
-		log.Error(err)
-		return nil, err
+	var outWriter io.Writer
+	if outType == DECRYPTED_MSG_TYPE_BASE64 {
+		header := map[string]string{"Creator": "MixMedia"}
+		cWriter, err := armor.Encode(buffer, "PGP MESSAGE", header)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		defer cWriter.Close()
+		outWriter = cWriter
+	} else {
+		outWriter = buffer
 	}
-	defer cWriter.Close()
 
-	writer, err := openpgp.Encrypt(cWriter, entryList, nil, nil, nil)
+	writer, err := openpgp.Encrypt(outWriter, entryList, nil, nil, nil)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -41,20 +60,34 @@ func PGP_Encrypt_Reader(reader io.Reader, PublicKey io.Reader) (*bytes.Buffer, e
 	return buffer, nil
 }
 
-func PGP_Decrypt_Reader(decryptedMsg io.Reader, PrivateKey io.Reader) (io.Reader, error) {
+func PGP_Decrypt_Ascii_Armor_Reader(decryptedMsg io.Reader, PrivateKey io.Reader) (io.Reader, error) {
+	return PGP_Decrypt_Reader(decryptedMsg, PrivateKey, DECRYPTED_MSG_TYPE_BASE64)
+}
+
+func PGP_Decrypt_Binary_Reader(decryptedMsg io.Reader, PrivateKey io.Reader) (io.Reader, error) {
+	return PGP_Decrypt_Reader(decryptedMsg, PrivateKey, DECRYPTED_MSG_TYPE_BINARY)
+}
+
+func PGP_Decrypt_Reader(decryptedMsg io.Reader, PrivateKey io.Reader, inputType string) (io.Reader, error) {
 	entryList, err := openpgp.ReadArmoredKeyRing(PrivateKey)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 
-	block, err := armor.Decode(decryptedMsg)
-	if err != nil {
-		log.Error(err)
-		return nil, err
+	var decryptedReader io.Reader
+	if inputType == DECRYPTED_MSG_TYPE_BASE64 {
+		block, err := armor.Decode(decryptedMsg)
+		if err != nil {
+			log.Error(err)
+			return nil, err
+		}
+		decryptedReader = block.Body
+	} else {
+		decryptedReader = decryptedMsg
 	}
 
-	msgDesc, err := openpgp.ReadMessage(block.Body, entryList, nil, nil)
+	msgDesc, err := openpgp.ReadMessage(decryptedReader, entryList, nil, nil)
 	if err != nil {
 		log.Error(err)
 		return nil, err
@@ -65,7 +98,7 @@ func PGP_Decrypt_Reader(decryptedMsg io.Reader, PrivateKey io.Reader) (io.Reader
 
 func PGP_Encrypt(src []byte, PublicKey io.Reader) (EncryptEntry string, err error) {
 	reader := bytes.NewReader(src)
-	buffer, err := PGP_Encrypt_Reader(reader, PublicKey)
+	buffer, err := PGP_Encrypt_Ascii_Armor_Reader(reader, PublicKey)
 	if err != nil {
 		log.Error(err)
 		return "", err
@@ -84,7 +117,7 @@ func PGP_Encrypt_File(src []byte, PublicKey io.Reader, save_path string) (err er
 
 	reader := bytes.NewReader(src)
 
-	buffer, err := PGP_Encrypt_Reader(reader, PublicKey)
+	buffer, err := PGP_Encrypt_Ascii_Armor_Reader(reader, PublicKey)
 	if err != nil {
 		log.Error(err)
 		return err
@@ -98,3 +131,5 @@ func PGP_Encrypt_File(src []byte, PublicKey io.Reader, save_path string) (err er
 
 	return nil
 }
+
+

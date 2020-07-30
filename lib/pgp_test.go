@@ -64,6 +64,47 @@ func Test_PGP_Encrypt_File(t *testing.T) {
 	}()
 }
 
+func Test_PGP_Encrypt_File_Binary(t *testing.T) {
+	sourceFile, err := os.Open(getLocalPath("../test/temp/A12345_MO_20200609.xml"))
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+	defer sourceFile.Close()
+
+	keyFile, err := os.Open(getLocalPath("../test/temp/dahsing-public-key.pem"))
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+	defer keyFile.Close()
+
+	distFile, err := os.Create(getLocalPath("../test/temp/A12345_MO_20200609.xml.pgp"))
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+	defer distFile.Close()
+
+	buffer, err := PGP_Encrypt_Binary_Reader(sourceFile, keyFile)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+
+	_, err = io.Copy(distFile, buffer)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+
+}
+
 func Test_PGP_Encrypt_Reader(t *testing.T) {
 	sourceFile, err := os.Open(getLocalPath("../test/Sample.jpg"))
 	if err != nil {
@@ -81,7 +122,7 @@ func Test_PGP_Encrypt_Reader(t *testing.T) {
 	}
 	defer keyFile.Close()
 
-	buffer, err := PGP_Encrypt_Reader(sourceFile, keyFile)
+	buffer, err := PGP_Encrypt_Ascii_Armor_Reader(sourceFile, keyFile)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -103,7 +144,7 @@ func Test_PGP_Decrypt_Reader(t *testing.T)  {
 	raw := "Hello! World!"
 	rawReader := strings.NewReader(raw)
 
-	encryptedMsg, err := PGP_Encrypt_Reader(rawReader, publicKeyFile)
+	encryptedMsg, err := PGP_Encrypt_Binary_Reader(rawReader, publicKeyFile)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -120,7 +161,7 @@ func Test_PGP_Decrypt_Reader(t *testing.T)  {
 
 	t.Log(encryptedMsg.String());
 
-	rawBuffer, err := PGP_Decrypt_Reader(encryptedMsg, privateKeyFile)
+	rawBuffer, err := PGP_Decrypt_Binary_Reader(encryptedMsg, privateKeyFile)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -143,4 +184,44 @@ func Test_PGP_Decrypt_Reader(t *testing.T)  {
 		return
 	}
 
+}
+
+func Test_PGP_Decrypt_File(t *testing.T) {
+	privateKeyFile, err := os.Open(getLocalPath("../test/temp/driver-private-key.pem"))
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+	defer privateKeyFile.Close()
+
+	encryptedFilePath := getLocalPath("../test/temp/20191023_204179_01_rb_gs8010_ask_fmt01_#001.pdf.pgp")
+	encryptedFile, err := os.Open(encryptedFilePath)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+	defer encryptedFile.Close()
+
+	rawBuffer, err := PGP_Decrypt_Binary_Reader(encryptedFile, privateKeyFile)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+
+	decryptedFilePath := strings.Replace(encryptedFilePath, ".pgp", "", 1)
+	decryptedFile, err := os.Create(decryptedFilePath)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+	_, err = io.Copy(decryptedFile, rawBuffer)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
 }
