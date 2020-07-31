@@ -162,7 +162,8 @@ func (this *DownLoader) DecryptFiles(localDir string) (error) {
 				}
 				defer raw.Close()
 
-				decryptedReader, err := PGP_Decrypt_Binary_Reader(raw, privateKey)
+				PGP := &PGPHelper{PrivateKey: privateKey}
+				decryptedReader, err := PGP.Decrypt(raw)
 				if err != nil {
 					log.Error(err)
 					return err

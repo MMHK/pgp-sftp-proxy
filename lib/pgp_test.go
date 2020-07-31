@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bytes"
 	"io"
 	"io/ioutil"
 	"os"
@@ -133,35 +134,30 @@ func Test_PGP_Encrypt_Reader(t *testing.T) {
 }
 
 func Test_PGP_Decrypt_Reader(t *testing.T)  {
-	publicKeyFile, err := os.Open(getLocalPath("../test/test-key.pem"))
-	if err != nil {
-		t.Log(err)
-		t.Fail()
-		return
-	}
-	defer publicKeyFile.Close()
-
 	raw := "Hello! World!"
 	rawReader := strings.NewReader(raw)
 
-	encryptedMsg, err := PGP_Encrypt_Binary_Reader(rawReader, publicKeyFile)
+	privateKey := getLocalPath("../test/test-private-key.pem")
+	publicKey := getLocalPath("../test/test-key.pem")
+	PGP, err := NewPGPHelper(privateKey, publicKey)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 		return
 	}
 
-	privateKeyFile, err := os.Open(getLocalPath("../test/test-private-key.pem"))
+	encryptedMsg, err := PGP.EncryptBinary(rawReader)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 		return
 	}
-	defer privateKeyFile.Close()
 
 	t.Log(encryptedMsg.String());
 
-	rawBuffer, err := PGP_Decrypt_Binary_Reader(encryptedMsg, privateKeyFile)
+	encryptedReader := bytes.NewReader(encryptedMsg.Bytes())
+
+	rawBuffer, err := PGP.Decrypt(encryptedReader)
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -187,13 +183,23 @@ func Test_PGP_Decrypt_Reader(t *testing.T)  {
 }
 
 func Test_PGP_Decrypt_File(t *testing.T) {
-	privateKeyFile, err := os.Open(getLocalPath("../test/temp/driver-private-key.pem"))
+	privateKeyFile := getLocalPath("../test/temp/driver-private-key.pem")
+
+	conf, err := loadConfig()
 	if err != nil {
 		t.Log(err)
 		t.Fail()
 		return
 	}
-	defer privateKeyFile.Close()
+	conf.PGP.PrivateKeyPath = privateKeyFile
+	conf.PGP.PublicKeyPath = getLocalPath("../" + conf.PGP.PublicKeyPath)
+
+	PGP, err := NewPGPHelper(conf.PGP.PrivateKeyPath, conf.PGP.PublicKeyPath)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
 
 	encryptedFilePath := getLocalPath("../test/temp/20191023_204179_01_rb_gs8010_ask_fmt01_#001.pdf.pgp")
 	encryptedFile, err := os.Open(encryptedFilePath)
@@ -204,7 +210,7 @@ func Test_PGP_Decrypt_File(t *testing.T) {
 	}
 	defer encryptedFile.Close()
 
-	rawBuffer, err := PGP_Decrypt_Binary_Reader(encryptedFile, privateKeyFile)
+	rawBuffer, err := PGP.Decrypt(encryptedFile)
 	if err != nil {
 		t.Log(err)
 		t.Fail()

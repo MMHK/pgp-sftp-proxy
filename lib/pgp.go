@@ -1,18 +1,73 @@
 package lib
 
 import (
+	"bufio"
 	"bytes"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
 	_ "golang.org/x/crypto/ripemd160"
 	"io"
+	"io/ioutil"
 	"os"
+	"strings"
 )
 
 
 
 const DECRYPTED_MSG_TYPE_BASE64 = "base64"
 const DECRYPTED_MSG_TYPE_BINARY = "binary"
+
+type PGPHelper struct {
+	PrivateKey io.Reader
+	PublicKey  io.Reader
+}
+
+func NewPGPHelper(privateKeyPath string, publicKeyPath string) (*PGPHelper, error) {
+	pKey, err := ioutil.ReadFile(privateKeyPath)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	pReader := bytes.NewReader(pKey)
+
+	pubKey, err := ioutil.ReadFile(publicKeyPath)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	pubReader := bytes.NewReader(pubKey)
+
+	return &PGPHelper{
+		PrivateKey: pReader,
+		PublicKey:  pubReader,
+	}, nil
+}
+
+func (this *PGPHelper) EncryptAsciiArmor(reader io.Reader) (*bytes.Buffer, error) {
+	return PGP_Encrypt_Ascii_Armor_Reader(reader, this.PublicKey)
+}
+
+func (this *PGPHelper) EncryptBinary(reader io.Reader) (*bytes.Buffer, error) {
+	return PGP_Encrypt_Binary_Reader(reader, this.PublicKey)
+}
+
+func (this *PGPHelper) Decrypt(reader io.ReadSeeker) (io.Reader, error) {
+	armorReader := bufio.NewReaderSize(reader, 32)
+	line, _, err := armorReader.ReadLine()
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	reader.Seek(0, io.SeekStart)
+
+	if strings.Contains(string(line), `-----BEGIN PGP MESSAGE-----`) {
+		return PGP_Decrypt_Ascii_Armor_Reader(reader, this.PrivateKey)
+	}
+
+	return PGP_Decrypt_Binary_Reader(reader, this.PrivateKey)
+}
+
 
 func PGP_Encrypt_Ascii_Armor_Reader(reader io.Reader, PublicKey io.Reader) (*bytes.Buffer, error) {
 	return PGP_Encrypt_Reader(reader, PublicKey, DECRYPTED_MSG_TYPE_BASE64)
