@@ -10,7 +10,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 )
 
 type DownLoader struct {
@@ -21,6 +23,32 @@ func NewDownLoader(conf *Config) *DownLoader {
 	return &DownLoader{
 		config: conf,
 	}
+}
+
+const (
+	PDF_TYPE_SCHEDULE           = `POLICY_SCHEDULE`
+	PDF_TYPE_DEBIT_NOTE         = `DEBIT_NOTE_FOR_AGENT`
+	PDF_TYPE_CI                 = `MOTOR_CERTIFICATE_OF_INSURANCE`
+	PDF_TYPE_DUPLICATE_SCHEDULE = `DUPLICATE_POLICY_SCHEDULE`
+	PDF_TYPE_IC                 = `PAYMENT_CERTIFICATE`
+)
+
+type PolicyPDF struct {
+	Node         *RemoteNode
+	AgentNumber  string
+	CreateTime   string
+	PolicyNumber string
+	PDFType      string
+}
+
+func (this *PolicyPDF) CreateAt() (time.Time, error) {
+	timezone := time.FixedZone("GMT", 8)
+	createAt, err := time.ParseInLocation("20060102", this.CreateTime, timezone)
+	if err != nil {
+		return time.Now(), err
+	}
+
+	return createAt, nil
 }
 
 func (this *DownLoader) TempDir(callback func(tempDir string)(error)) (error) {
@@ -256,6 +284,43 @@ func (this *DownLoader) UnZipFiles(localDir string) (error) {
 	}
 
 	return nil
+}
+
+func (this *DownLoader) FilterPolicyDoc(localDir string) ([]*PolicyPDF, error) {
+	out := make([]*PolicyPDF, 0)
+
+	list, err := this.GetLocalFiles(localDir)
+	if err != nil {
+		log.Error(err)
+		return out, err
+	}
+
+	folderRule := `(?i)([^_\\\/]+)_MO_DOC_([0-9]{8})/`
+	pdfRule := `([^_]+)_(POLICY_SCHEDULE|DEBIT_NOTE_FOR_AGENT|MOTOR_CERTIFICATE_OF_INSURANCE|DUPLICATE_POLICY_SCHEDULE|PAYMENT_CERTIFICATE)_([0-9]{8})\.pdf`
+
+	r, err := regexp.Compile(folderRule + pdfRule)
+	if err != nil {
+		log.Error(err)
+		return out, err
+	}
+
+	for _, item := range list {
+		fullPath := filepath.ToSlash(item.FullPath)
+		if r.MatchString(fullPath) {
+			matches := r.FindAllStringSubmatch(fullPath, 1)
+			if len(matches) > 0 && len(matches[0]) > 5 {
+				out = append(out, &PolicyPDF{
+					Node: item,
+					PolicyNumber: matches[0][3],
+					AgentNumber: matches[0][1],
+					CreateTime: matches[0][5],
+					PDFType: matches[0][4],
+				})
+			}
+		}
+	}
+
+	return out, nil
 }
 
 // UnZipFile will decompress a zip archive, moving all files and folders

@@ -89,7 +89,7 @@ func (this *HTTPService) Upload(writer http.ResponseWriter, request *http.Reques
 
 	keyReader := strings.NewReader(key)
 	remoteFile := filepath.Join(this.config.SFTP.UploadDir, fmt.Sprintf("%s.pgp", filename))
-	reader, err := PGP_Encrypt_Ascii_Armor_Reader(uploadFile, keyReader)
+	reader, err := PGP_Encrypt_Binary_Reader(uploadFile, keyReader)
 	if err != nil {
 		log.Error(err)
 		this.ResponseError(err, writer, 500)

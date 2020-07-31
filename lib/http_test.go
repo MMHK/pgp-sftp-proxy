@@ -17,7 +17,10 @@ func getHttpServer() (*HTTPService, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
+	conf.PGP.PublicKeyPath = getLocalPath("../" + conf.PGP.PublicKeyPath)
+	conf.PGP.PrivateKeyPath = getLocalPath("../" + conf.PGP.PrivateKeyPath)
+
 	return NewHTTP(conf), nil
 }
 
