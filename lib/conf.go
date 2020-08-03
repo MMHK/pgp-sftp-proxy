@@ -63,6 +63,13 @@ type PGPOption struct {
 	PrivateKeyPath string `json:"private-key"`
 }
 
+type AWSOption struct {
+	Region    string `json:"region"`
+	AccessKey string `json:"access-key"`
+	SecretKey string `json:"secret-key"`
+	Bucket    string `json:"bucket"`
+}
+
 type Config struct {
 	Listen        string       `json:"listen"`
 	WebRoot       string       `json:"web_root"`
@@ -70,6 +77,7 @@ type Config struct {
 	SSH           SSHItem      `json:"ssh"`
 	SFTP          *SftpOptions `json:"sftp"`
 	PGP           *PGPOption   `json:"pgp"`
+	AWS           *AWSOption   `json:"aws"`
 	AvailableTime []*TimeRange `json:"time-range"`
 	save_path     string
 }
