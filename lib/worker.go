@@ -34,25 +34,37 @@ const (
 )
 
 const (
+	MOTORS_PDF_TYPE_SCHEDULE 			= `schedule_path`
+	MOTORS_PDF_TYPE_DEBIT_NOTE 			= `debit_note_insurer_path`
+	MOTORS_PDF_TYPE_CI 					= `ci_path`
+	MOTORS_PDF_TYPE_DUPLICATE_SCHEDULE 	= `schedule_path`
+	MOTORS_PDF_TYPE_IC 					= `certificate_path`
+)
+
+const (
 	OCR_CHASSIS_NUMBER 		= `Chassis No.`
 	OCR_ENGINE_NUMBER 		= `Engine No. or Type`
+	OCR_REGISTRATION_NUMBER = `Registration No.`
 	OCR_PREMIUM_PAYABLE 	= `Premium Payable`
 	OCR_MAKE 				= `Make`
 	OCR_MODEL 				= `Model`
 	OCR_TYPE_OF_COVER 		= `Type of Cover`
 	OCR_BODY_TYPE 			= `Body`
 	OCR_POLICY_NUMBER		= `Policy No.`
+	OCR_NCB					= `NCB`
 )
 
 const (
 	MOTORS_CHASSIS_NUMBER 		= `chasis_no`
 	MOTORS_ENGINE_NUMBER 		= `engn_no`
+	MOTORS_REGISTRATION_NUMBER  = `rgtn_no`
 	MOTORS_PREMIUM_PAYABLE 		= `payable`
 	MOTORS_MAKE 				= `brand`
 	MOTORS_MODEL 				= `rgtn_mdl`
 	MOTORS_TYPE_OF_COVER 		= `trm_of_cvr`
 	MOTORS_BODY_TYPE 			= `typ_of_bdy`
 	MOTORS_POLICY_NUMBER		= `pcy_no`
+	MOTORS_NCB				    = `ncd_prctg`
 )
 
 type PolicyPDF struct {
@@ -378,6 +390,8 @@ func (this *DownLoader) GetPolicyDataWithOCR(pdfList []*PolicyPDF) (map[string]s
 		MOTORS_MODEL: mapping[OCR_MODEL],
 		MOTORS_TYPE_OF_COVER: mapping[OCR_TYPE_OF_COVER],
 		MOTORS_POLICY_NUMBER: mapping[OCR_POLICY_NUMBER],
+		MOTORS_REGISTRATION_NUMBER: mapping[OCR_REGISTRATION_NUMBER],
+		MOTORS_NCB: mapping[OCR_NCB],
 	}, nil
 }
 
