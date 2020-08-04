@@ -33,6 +33,28 @@ const (
 	PDF_TYPE_IC                 = `PAYMENT_CERTIFICATE`
 )
 
+const (
+	OCR_CHASSIS_NUMBER 		= `Chassis No.`
+	OCR_ENGINE_NUMBER 		= `Engine No. or Type`
+	OCR_PREMIUM_PAYABLE 	= `Premium Payable`
+	OCR_MAKE 				= `Make`
+	OCR_MODEL 				= `Model`
+	OCR_TYPE_OF_COVER 		= `Type of Cover`
+	OCR_BODY_TYPE 			= `Body`
+	OCR_POLICY_NUMBER		= `Policy No.`
+)
+
+const (
+	MOTORS_CHASSIS_NUMBER 		= `chasis_no`
+	MOTORS_ENGINE_NUMBER 		= `engn_no`
+	MOTORS_PREMIUM_PAYABLE 		= `payable`
+	MOTORS_MAKE 				= `brand`
+	MOTORS_MODEL 				= `rgtn_mdl`
+	MOTORS_TYPE_OF_COVER 		= `trm_of_cvr`
+	MOTORS_BODY_TYPE 			= `typ_of_bdy`
+	MOTORS_POLICY_NUMBER		= `pcy_no`
+)
+
 type PolicyPDF struct {
 	Node         *RemoteNode
 	AgentNumber  string
@@ -321,6 +343,42 @@ func (this *DownLoader) FilterPolicyDoc(localDir string) ([]*PolicyPDF, error) {
 	}
 
 	return out, nil
+}
+
+func (this *DownLoader) GetPolicyDataWithOCR(pdfList []*PolicyPDF) (map[string]string, error) {
+	var ScheduleFile *PolicyPDF
+	for _, file := range pdfList {
+		if file.PDFType == PDF_TYPE_SCHEDULE {
+			ScheduleFile = file
+			break
+		}
+	}
+
+	if ScheduleFile == nil {
+		return nil, errors.New("pdf not found")
+	}
+
+	ocr, err := NewOCRService(this.config.AWS)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	mapping, err := ocr.GetFormDataFromFile(ScheduleFile.Node.FullPath)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return map[string]string{
+		MOTORS_BODY_TYPE: mapping[OCR_BODY_TYPE],
+		MOTORS_CHASSIS_NUMBER: mapping[OCR_CHASSIS_NUMBER],
+		MOTORS_ENGINE_NUMBER: mapping[OCR_ENGINE_NUMBER],
+		MOTORS_PREMIUM_PAYABLE: mapping[OCR_PREMIUM_PAYABLE],
+		MOTORS_MAKE: mapping[OCR_MAKE],
+		MOTORS_MODEL: mapping[OCR_MODEL],
+		MOTORS_TYPE_OF_COVER: mapping[OCR_TYPE_OF_COVER],
+		MOTORS_POLICY_NUMBER: mapping[OCR_POLICY_NUMBER],
+	}, nil
 }
 
 // UnZipFile will decompress a zip archive, moving all files and folders

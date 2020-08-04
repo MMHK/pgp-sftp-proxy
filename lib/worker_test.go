@@ -148,3 +148,51 @@ func Test_MatchPolicyFiles(t *testing.T) {
 	}
 
 }
+
+func Test_DownLoader_GetPolicyDataWithOCR(t *testing.T) {
+	localPDFPath := getLocalPath("../test/temp/dahsing-SCHEDULE-sample.pdf")
+	localPDFFileInfo, err := os.Stat(localPDFPath)
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	pdfList := []*PolicyPDF{
+		&PolicyPDF{
+			Node: &RemoteNode{
+				Info: localPDFFileInfo,
+				FullPath: localPDFPath,
+			},
+			AgentNumber: "123456",
+			CreateTime: "20200803",
+			PolicyNumber: "",
+			PDFType: PDF_TYPE_SCHEDULE,
+		},
+	}
+
+	conf, err := loadConfig()
+	if err != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+	conf.TempDir = getLocalPath("../" + conf.TempDir)
+	conf.AWS = &AWSOption{
+		Region: "ap-southeast-1",
+		Bucket: "s3.test.mixmedia.com",
+		AccessKey: os.Getenv("AWS_ACCESS_KEY_ID"),
+		SecretKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
+	}
+
+	worker := NewDownLoader(conf)
+
+	mapping, err := worker.GetPolicyDataWithOCR(pdfList)
+	if err != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	t.Log(mapping)
+}

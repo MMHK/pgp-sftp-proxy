@@ -2,6 +2,7 @@ package lib
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -20,7 +21,6 @@ type S3Storage struct {
 	Conf    *AWSOption
 	session *session.Session
 }
-
 
 type UploadOptions struct {
 	ContentType string
@@ -195,8 +195,10 @@ func (this *OCRService) GetPDFText(reader io.Reader) (error) {
 	});
 }
 
-func (this *OCRService) GetFormData(reader io.Reader) (error) {
-	return this.TempS3File(reader, func(remotePath string) error {
+func (this *OCRService) GetFormData(reader io.Reader) (map[string]string, error) {
+	mapping := make(map[string]string, 0)
+
+	err := this.TempS3File(reader, func(remotePath string) error {
 		ocr := textract.New(this.session)
 		log.Debug("StartDocumentAnalysis")
 		resp, err := ocr.StartDocumentAnalysis(&textract.StartDocumentAnalysisInput{
@@ -232,16 +234,92 @@ func (this *OCRService) GetFormData(reader io.Reader) (error) {
 			goto restart
 		}
 
-		kv, err := this.GetKeyValues(doc)
+		mapping, err = this.GetKeyValues(doc)
 		if err != nil {
 			log.Error(err)
 			return err
 		}
 
-		log.Debug("%+v", kv)
+		//log.Debug("%+v", mapping)
 
 		return nil
 	});
+
+	if err != nil {
+		return mapping, err
+	}
+
+	return mapping, nil
+}
+
+func (this *OCRService) getLocalCache(localPath string) (map[string]string, error) {
+	cachePath := localPath + ".json"
+	if _, err := os.Stat(cachePath); err != nil && os.IsNotExist(err) {
+		return nil, err
+	}
+	cacheFile, err := os.Open(cachePath)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	defer cacheFile.Close()
+
+	decoder := json.NewDecoder(cacheFile)
+	mapping := make(map[string]string, 0)
+
+	err = decoder.Decode(&mapping)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return mapping, nil
+}
+
+func (this *OCRService) saveLocalCache(localPath string, mapping map[string]string) (error) {
+	cachePath := localPath + ".json"
+	if _, err := os.Stat(cachePath); err == nil {
+		os.Remove(cachePath)
+	}
+	cacheFile, err := os.Create(cachePath)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	defer cacheFile.Close()
+
+	encoder := json.NewEncoder(cacheFile)
+	err = encoder.Encode(mapping)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	return nil
+}
+
+func (this *OCRService) GetFormDataFromFile(localPath string) (map[string]string, error) {
+	data, err := this.getLocalCache(localPath)
+	if err == nil {
+		return data, nil
+	}
+
+	inputFile, err := os.Open(localPath)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	defer inputFile.Close()
+
+	data, err = this.GetFormData(inputFile)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	defer this.saveLocalCache(localPath, data)
+
+	return data, nil
 }
 
 type KeyValueRaw struct {
@@ -252,27 +330,36 @@ type KeyValueRaw struct {
 func (this *KeyValueRaw) GetKey(mapping map[string]*string) string {
 	buf := new(bytes.Buffer)
 	for i, k := range this.Key {
-		k, ok := mapping[*k]
+		v, ok := mapping[*k]
 		if ok {
 			if i > 0 {
 				buf.WriteString(" ")
 			}
-			buf.WriteString(*k)
+			buf.WriteString(*v)
 		}
 	}
 
 	return buf.String()
 }
 
-func (this *KeyValueRaw) GetValue(mapping map[string]*string) string {
+func (this *KeyValueRaw) GetValue(mapping map[string]*string, valueMapping map[string][]*string) string {
 	buf := new(bytes.Buffer)
 	for i, k := range this.Value {
-		k, ok := mapping[*k]
+		valList, ok := valueMapping[*k]
 		if ok {
 			if i > 0 {
 				buf.WriteString(" ")
 			}
-			buf.WriteString(*k)
+			for j, v := range valList {
+				val, exist := mapping[*v]
+				if exist {
+					if j > 0 {
+						buf.WriteString(" ")
+					}
+					buf.WriteString(*val)
+				}
+
+			}
 		}
 	}
 
@@ -282,10 +369,25 @@ func (this *KeyValueRaw) GetValue(mapping map[string]*string) string {
 func (this *OCRService) GetKeyValues(inputDocument *textract.GetDocumentAnalysisOutput) (map[string]string, error) {
 	words := make(map[string]*string, 0)
 	formList := make([]*KeyValueRaw, 0)
+	values := make(map[string][]*string, 0)
 	for _, block := range inputDocument.Blocks {
 		blockType := *block.BlockType
 		if blockType == textract.BlockTypeWord {
 			words[*block.Id] = block.Text
+		}
+
+		if blockType == textract.BlockTypeKeyValueSet &&
+			len(block.EntityTypes) > 0 &&
+			(*block.EntityTypes[0]) == textract.EntityTypeValue {
+			valueChild := make([]*string, 0)
+
+			for _, item := range block.Relationships {
+				if (*item.Type) == textract.RelationshipTypeChild {
+					valueChild = append(valueChild, item.Ids...)
+				}
+			}
+
+			values[*block.Id] = valueChild
 		}
 
 		if blockType == textract.BlockTypeKeyValueSet &&
@@ -297,10 +399,10 @@ func (this *OCRService) GetKeyValues(inputDocument *textract.GetDocumentAnalysis
 
 			for _, item := range block.Relationships {
 				if (*item.Type) == textract.RelationshipTypeValue {
-					keyList = append(keyList, item.Ids...)
+					valueList = append(valueList, item.Ids...)
 				}
 				if (*item.Type) == textract.RelationshipTypeChild {
-					valueList = append(valueList, item.Ids...)
+					keyList = append(keyList, item.Ids...)
 				}
 			}
 
@@ -313,10 +415,8 @@ func (this *OCRService) GetKeyValues(inputDocument *textract.GetDocumentAnalysis
 
 	mapping := make(map[string]string, 0)
 
-	log.Debugf("%+v", formList)
-
 	for _, kv := range formList {
-		mapping[kv.GetKey(words)] = kv.GetValue(words)
+		mapping[kv.GetKey(words)] = kv.GetValue(words, values)
 	}
 
 	return mapping, nil
