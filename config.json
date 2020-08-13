@@ -9,8 +9,12 @@
 		"key" : "${SSH_KEY}"
 	},
 	"sftp": {
-		"upload-dir": "/in",
-		"download-dir": "/out"
+		"upload-dir": "${SFTP_UPLOAD_DIR}",
+		"download-dir": "${SFTP_DOWNLOAD_DIR}"
+	},
+	"pgp": {
+		"public-key": "${PGP_PUBLIC_KEY}",
+		"private-key": "${PGP_PRIVATE_KEY}"
 	},
 	"time-range": [
 		{
