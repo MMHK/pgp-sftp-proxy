@@ -23,6 +23,7 @@ RUN wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/
  && chmod +x /usr/local/bin/dumb-init \
  && apk add --update libintl \
  && apk add --virtual build_deps gettext \
+ && apk add --no-cache tzdata \
  && cp /usr/bin/envsubst /usr/local/bin/envsubst \
  && apk del build_deps
 
@@ -34,6 +35,7 @@ COPY --from=builder /app/pgp-sftp-proxy/web_root ./web_root
 COPY --from=builder /app/pgp-sftp-proxy/config.json .
 
 ENV HOST=0.0.0.0:3334 \
+ TZ=Asia/Hong_Kong \
  SERVICE_NAME=dahsing-pgp \
  ROOT=/app/web_root \
  TEMP=/tmp \
