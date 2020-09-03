@@ -52,6 +52,7 @@ const (
 	OCR_BODY_TYPE 			= `Body`
 	OCR_POLICY_NUMBER		= `Policy No.`
 	OCR_NCB					= `NCB`
+	OCR_PERIOD_OF_INSURANCE = `Period of Insurance`
 )
 
 const (
@@ -66,6 +67,22 @@ const (
 	MOTORS_POLICY_NUMBER		= `pcy_no`
 	MOTORS_NCB				    = `ncd_prctg`
 )
+
+type PolicyGroup struct {
+	Files              []*PolicyPDF
+	ClassisNumber      string
+	EngineNumber       string
+	RegistrationNumber string
+	PremiumPayable     string
+	Make               string
+	Model              string
+	TypeOfCover        string
+	BodyType           string
+	PolicyNumber       string
+	NCB                string
+	EffectiveDate      *time.Time
+	ExpireDate         *time.Time
+}
 
 type PolicyPDF struct {
 	Node         *RemoteNode
@@ -357,42 +374,94 @@ func (this *DownLoader) FilterPolicyDoc(localDir string) ([]*PolicyPDF, error) {
 	return out, nil
 }
 
-func (this *DownLoader) GetPolicyDataWithOCR(pdfList []*PolicyPDF) (map[string]string, error) {
-	var ScheduleFile *PolicyPDF
-	for _, file := range pdfList {
-		if file.PDFType == PDF_TYPE_SCHEDULE {
-			ScheduleFile = file
-			break
+func (this *DownLoader) GroupPolicyWithOCR(pdfList []*PolicyPDF) ([]*PolicyGroup, error) {
+	group := make([]*PolicyGroup, 0)
+
+	policyDPFMapping := make(map[string][]*PolicyPDF, 0)
+	for _, pdf := range pdfList {
+		policyTmp, ok := policyDPFMapping[pdf.PolicyNumber]
+		if !ok {
+			policyDPFMapping[pdf.PolicyNumber] = []*PolicyPDF{
+				pdf,
+			}
+			continue
+		}
+		policyTmp = append(policyTmp, pdf)
+	}
+
+	for _, pdfGroup := range policyDPFMapping {
+		mapping := make(map[string]string, 0)
+		for _, pdf := range pdfGroup {
+			if pdf.PDFType == PDF_TYPE_SCHEDULE {
+				ocr, err := NewOCRService(this.config.AWS)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+				mapping, err = ocr.GetFormDataFromFile(pdf.Node.FullPath)
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+			}
+		}
+
+		if len(mapping) > 0 {
+			policy := &PolicyGroup{
+				Files:              pdfGroup,
+				ClassisNumber:      mapping[OCR_CHASSIS_NUMBER],
+				EngineNumber:       mapping[OCR_ENGINE_NUMBER],
+				RegistrationNumber: mapping[OCR_REGISTRATION_NUMBER],
+				PremiumPayable:     mapping[OCR_PREMIUM_PAYABLE],
+				Make:               mapping[OCR_MAKE],
+				Model:              mapping[OCR_MODEL],
+				TypeOfCover:        mapping[OCR_TYPE_OF_COVER],
+				BodyType:           mapping[OCR_BODY_TYPE],
+				PolicyNumber:       mapping[OCR_POLICY_NUMBER],
+				NCB:                mapping[OCR_NCB],
+			}
+
+			start, end, err := SplitEffectiveDateAndExpireDate(mapping[OCR_PERIOD_OF_INSURANCE])
+			if err != nil {
+				log.Error(err)
+			} else {
+				policy.EffectiveDate = start
+				policy.ExpireDate = end
+			}
+
+			group = append(group, policy)
 		}
 	}
 
-	if ScheduleFile == nil {
-		return nil, errors.New("pdf not found")
+	return group, nil
+}
+
+func SplitEffectiveDateAndExpireDate(src string) (EffectiveDate *time.Time, ExpireDate *time.Time, err error) {
+	params := strings.SplitN(src, ` to `, 2)
+
+	if len(params) < 2 {
+		return nil, nil, errors.New("parse error")
 	}
 
-	ocr, err := NewOCRService(this.config.AWS)
+	timezone, err := time.LoadLocation("Asia/Hong_Kong")
 	if err != nil {
 		log.Error(err)
-		return nil, err
-	}
-	mapping, err := ocr.GetFormDataFromFile(ScheduleFile.Node.FullPath)
-	if err != nil {
-		log.Error(err)
-		return nil, err
+		timezone = time.FixedZone("GMT", 8)
 	}
 
-	return map[string]string{
-		MOTORS_BODY_TYPE: mapping[OCR_BODY_TYPE],
-		MOTORS_CHASSIS_NUMBER: mapping[OCR_CHASSIS_NUMBER],
-		MOTORS_ENGINE_NUMBER: mapping[OCR_ENGINE_NUMBER],
-		MOTORS_PREMIUM_PAYABLE: mapping[OCR_PREMIUM_PAYABLE],
-		MOTORS_MAKE: mapping[OCR_MAKE],
-		MOTORS_MODEL: mapping[OCR_MODEL],
-		MOTORS_TYPE_OF_COVER: mapping[OCR_TYPE_OF_COVER],
-		MOTORS_POLICY_NUMBER: mapping[OCR_POLICY_NUMBER],
-		MOTORS_REGISTRATION_NUMBER: mapping[OCR_REGISTRATION_NUMBER],
-		MOTORS_NCB: mapping[OCR_NCB],
-	}, nil
+	start, err := time.ParseInLocation("02 January 2006 15:04", params[0], timezone)
+	if err != nil {
+		log.Error(err)
+		return nil, nil, err;
+	}
+
+	end, err := time.ParseInLocation("02 January 2006", params[1], timezone)
+	if err != nil {
+		log.Error(err)
+		return nil, nil, err;
+	}
+
+	return &start, &end, nil
 }
 
 // UnZipFile will decompress a zip archive, moving all files and folders

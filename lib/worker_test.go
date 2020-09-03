@@ -36,16 +36,12 @@ func Test_TempDir(t *testing.T)  {
 }
 
 func Test_DownloadFiles_DecryptFiles_UnZipFiles(t *testing.T) {
-	conf, err := loadConfig()
+	conf, err := loadCustomConfig(getLocalPath("../test/temp/live.json"))
 	if err != err {
 		t.Error(err)
 		t.Fail()
 		return
 	}
-
-	conf.TempDir = getLocalPath("../" + conf.TempDir)
-	conf.PGP.PrivateKeyPath = getLocalPath("../" + conf.PGP.PrivateKeyPath)
-	conf.PGP.PublicKeyPath = getLocalPath("../" + conf.PGP.PublicKeyPath)
 
 	t.Log(conf.TempDir)
 	t.Log(conf.PGP.PrivateKeyPath)
@@ -150,7 +146,7 @@ func Test_MatchPolicyFiles(t *testing.T) {
 }
 
 func Test_DownLoader_GetPolicyDataWithOCR(t *testing.T) {
-	localPDFPath := getLocalPath("../test/temp/dahsing-SCHEDULE-sample.pdf")
+	localPDFPath := getLocalPath("../test/temp/146733PMV18_POLICY_SCHEDULE_20200827.PDF")
 	localPDFFileInfo, err := os.Stat(localPDFPath)
 	if err != nil {
 		t.Error(err)
@@ -187,12 +183,29 @@ func Test_DownLoader_GetPolicyDataWithOCR(t *testing.T) {
 
 	worker := NewDownLoader(conf)
 
-	mapping, err := worker.GetPolicyDataWithOCR(pdfList)
+	mapping, err := worker.GroupPolicyWithOCR(pdfList)
 	if err != err {
 		t.Error(err)
 		t.Fail()
 		return
 	}
 
-	t.Log(mapping)
+	for _, policy := range mapping {
+		t.Logf("%-v", policy)
+	}
+
+}
+
+func Test_SplitEffectiveDateAndExpireDate(t *testing.T) {
+	src := `24 September 2018 16:26 to 23 October 2018`
+
+	start, end, err := SplitEffectiveDateAndExpireDate(src)
+	if err != nil{
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	t.Logf("%-v", start)
+	t.Logf("%-v", end)
 }

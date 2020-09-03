@@ -67,7 +67,7 @@ func Test_OCRService_GetFormData(t *testing.T) {
 	defer pdf.Close()
 
 
-	mapping, err := ocr.GetFormData(pdf)
+	_, mapping, err := ocr.GetFormData(pdf)
 	if err != nil {
 		t.Error(err)
 		t.Fail()
@@ -94,14 +94,18 @@ func Test_OCRService_GetFormDataFromFile(t *testing.T) {
 		return
 	}
 
-	mapping, err := ocr.GetFormDataFromFile(getLocalPath("../test/temp/dahsing-SCHEDULE-sample.pdf"))
+	ocr.SetCache(getLocalPath("../test/temp"))
+
+	mapping, err := ocr.GetFormDataFromFile(getLocalPath("../test/temp/146733PMV18_POLICY_SCHEDULE_20200827.PDF"))
 	if err != nil {
 		t.Error(err)
 		t.Fail()
 		return
 	}
 
-	t.Log(mapping)
+	for k, v := range mapping {
+		t.Logf("%s => %s", k, v)
+	}
 }
 
 func Test_GetDocumentAnalysisOutput(t *testing.T) {
@@ -128,6 +132,7 @@ func Test_GetDocumentAnalysisOutput(t *testing.T) {
 	words := make(map[string]*string, 0)
 	formList := make([]*KeyValueRaw, 0)
 	values := make(map[string][]*string, 0)
+	LineList := make([]string, 0)
 	for _, block := range outPut.Blocks {
 		blockType := *block.BlockType
 		if blockType == textract.BlockTypeWord {
@@ -146,6 +151,11 @@ func Test_GetDocumentAnalysisOutput(t *testing.T) {
 			}
 
 			values[*block.Id] = valueChild
+		}
+
+		if blockType == textract.BlockTypeLine && block.Text != nil {
+
+			LineList = append(LineList, *block.Text)
 		}
 
 		if blockType == textract.BlockTypeKeyValueSet &&
@@ -177,8 +187,16 @@ func Test_GetDocumentAnalysisOutput(t *testing.T) {
 		mapping[kv.GetKey(words)] = kv.GetValue(words, values)
 	}
 
+	t.Log("mapping:")
+
 	for k, v := range mapping {
 		t.Logf("%s\t=>\t%s", k, v)
+	}
+
+	t.Log("lines:")
+
+	for _, l := range LineList {
+		t.Log(l);
 	}
 
 }

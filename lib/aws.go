@@ -2,7 +2,10 @@ package lib
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -14,6 +17,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 )
 
@@ -113,6 +117,7 @@ func (this *S3Storage) Remove(Key string) (error) {
 
 type OCRService struct {
 	Conf    *AWSOption
+	cachePath string
 	session *session.Session
 }
 
@@ -131,6 +136,75 @@ func NewOCRService(conf *AWSOption) (*OCRService, error) {
 		Conf:    conf,
 		session: sess,
 	}, nil
+}
+
+func (this *OCRService) SetCache(cachePath string) {
+	if _, err := os.Stat(cachePath); err != nil && os.IsNotExist(err) {
+		os.MkdirAll(cachePath, os.ModePerm)
+	}
+
+	this.cachePath = cachePath
+}
+
+func (this *OCRService) GetFileHash(reader io.ReadSeeker) (string, error) {
+	key := ""
+	reader.Seek(0, io.SeekStart)
+	defer reader.Seek(0, io.SeekStart)
+
+	hasher := sha256.New()
+	_, err := io.Copy(hasher, reader)
+	if err != nil {
+		log.Error(err)
+		return key, err
+	}
+
+	key = hex.EncodeToString(hasher.Sum(nil))
+
+	return key, nil
+}
+
+func (this *OCRService) CacheResponse(Key string, resp *textract.GetDocumentAnalysisOutput) (error) {
+	if len(this.cachePath) <= 0 {
+		return errors.New("Cache Path has not been settled yet");
+	}
+	cacheFilePath := filepath.Join(this.cachePath, Key + ".json")
+	cacheFile, err := os.Create(cacheFilePath)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	defer cacheFile.Close()
+
+	encoder := json.NewEncoder(cacheFile)
+	err = encoder.Encode(resp)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
+}
+
+func (this *OCRService) GetResponseFromCache(Key string) (*textract.GetDocumentAnalysisOutput, error) {
+	if len(this.cachePath) <= 0 {
+		return nil, errors.New("Cache Path has not been settled yet");
+	}
+
+	cacheFilePath := filepath.Join(this.cachePath, Key + ".json")
+	cacheFile, err := os.Open(cacheFilePath)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	defer cacheFile.Close()
+
+	resp := new(textract.GetDocumentAnalysisOutput)
+	decoder := json.NewDecoder(cacheFile)
+	err = decoder.Decode(resp)
+	if err != nil {
+		log.Error(err)
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (this *OCRService) TempS3File(reader io.Reader, callback func(remotePath string) error) (error) {
@@ -195,8 +269,9 @@ func (this *OCRService) GetPDFText(reader io.Reader) (error) {
 	});
 }
 
-func (this *OCRService) GetFormData(reader io.Reader) (map[string]string, error) {
+func (this *OCRService) GetFormData(reader io.Reader) (*textract.GetDocumentAnalysisOutput, map[string]string, error) {
 	mapping := make(map[string]string, 0)
+	var rawResp *textract.GetDocumentAnalysisOutput
 
 	err := this.TempS3File(reader, func(remotePath string) error {
 		ocr := textract.New(this.session)
@@ -234,6 +309,7 @@ func (this *OCRService) GetFormData(reader io.Reader) (map[string]string, error)
 			goto restart
 		}
 
+		rawResp = doc
 		mapping, err = this.GetKeyValues(doc)
 		if err != nil {
 			log.Error(err)
@@ -246,10 +322,10 @@ func (this *OCRService) GetFormData(reader io.Reader) (map[string]string, error)
 	});
 
 	if err != nil {
-		return mapping, err
+		return nil, mapping, err
 	}
 
-	return mapping, nil
+	return rawResp, mapping, nil
 }
 
 func (this *OCRService) getLocalCache(localPath string) (map[string]string, error) {
@@ -311,10 +387,23 @@ func (this *OCRService) GetFormDataFromFile(localPath string) (map[string]string
 	}
 	defer inputFile.Close()
 
-	data, err = this.GetFormData(inputFile)
+	fileHash, hashErr := this.GetFileHash(inputFile)
+
+	if hashErr == nil {
+		doc, err := this.GetResponseFromCache(fileHash)
+		if err == nil {
+			return this.GetKeyValues(doc)
+		}
+	}
+
+	resp, data, err := this.GetFormData(inputFile)
 	if err != nil {
 		log.Error(err)
 		return nil, err
+	}
+
+	if hashErr == nil {
+		this.CacheResponse(fileHash, resp)
 	}
 
 	defer this.saveLocalCache(localPath, data)
@@ -370,6 +459,7 @@ func (this *OCRService) GetKeyValues(inputDocument *textract.GetDocumentAnalysis
 	words := make(map[string]*string, 0)
 	formList := make([]*KeyValueRaw, 0)
 	values := make(map[string][]*string, 0)
+	lines := make([]*string, 0)
 	for _, block := range inputDocument.Blocks {
 		blockType := *block.BlockType
 		if blockType == textract.BlockTypeWord {
@@ -388,6 +478,10 @@ func (this *OCRService) GetKeyValues(inputDocument *textract.GetDocumentAnalysis
 			}
 
 			values[*block.Id] = valueChild
+		}
+
+		if blockType == textract.BlockTypeLine && block.Text != nil {
+			lines = append(lines, block.Text)
 		}
 
 		if blockType == textract.BlockTypeKeyValueSet &&
@@ -419,5 +513,41 @@ func (this *OCRService) GetKeyValues(inputDocument *textract.GetDocumentAnalysis
 		mapping[kv.GetKey(words)] = kv.GetValue(words, values)
 	}
 
+	res, err := this.FindPeriodOfInsurance(lines)
+	if err == nil {
+		mapping["Period of Insurance"] = res
+	}
+
 	return mapping, nil
+}
+
+func (this *OCRService) GetLines(inputDocument *textract.GetDocumentAnalysisOutput) ([]*string) {
+	LineList := make([]*string, 0)
+
+	for _, block := range inputDocument.Blocks {
+		blockType := *block.BlockType
+
+		if blockType == textract.BlockTypeLine && block.Text != nil {
+			LineList = append(LineList, block.Text)
+		}
+	}
+
+	return LineList
+}
+
+func (this *OCRService) FindPeriodOfInsurance(list []*string) (string, error) {
+	folderRule := `(?i)[0-9]{1,} to [0-9]{1,}`
+	r, err := regexp.Compile(folderRule)
+	if err != nil {
+		log.Error(err)
+		return "", err
+	}
+
+	for _, item := range list {
+		if r.MatchString(*item) {
+			return *item, nil
+		}
+	}
+
+	return "", errors.New("not found")
 }
