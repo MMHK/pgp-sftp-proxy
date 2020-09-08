@@ -3,11 +3,15 @@ package lib
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/satori/go.uuid"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -34,11 +38,12 @@ const (
 )
 
 const (
-	MOTORS_PDF_TYPE_SCHEDULE 			= `schedule_path`
-	MOTORS_PDF_TYPE_DEBIT_NOTE 			= `debit_note_insurer_path`
-	MOTORS_PDF_TYPE_CI 					= `ci_path`
-	MOTORS_PDF_TYPE_DUPLICATE_SCHEDULE 	= `schedule_path`
-	MOTORS_PDF_TYPE_IC 					= `certificate_path`
+	MOTORS_PDF_TYPE_SCHEDULE 			= `schedule`
+	MOTORS_PDF_TYPE_DEBIT_NOTE 			= `dc`
+	MOTORS_PDF_TYPE_CI 					= `ci`
+	MOTORS_PDF_TYPE_DUPLICATE_SCHEDULE 	= `schedule`
+	MOTORS_PDF_TYPE_IC 					= `ic`
+	MOTORS_PDF_TYPE_FULL_POLICY			= `bill`
 )
 
 const (
@@ -66,6 +71,7 @@ const (
 	MOTORS_BODY_TYPE 			= `typ_of_bdy`
 	MOTORS_POLICY_NUMBER		= `pcy_no`
 	MOTORS_NCB				    = `ncd_prctg`
+	MOTORS_EFFECTIVE_DATE	    = `pcy_cmnt_dt`
 )
 
 type PolicyGroup struct {
@@ -346,8 +352,8 @@ func (this *DownLoader) FilterPolicyDoc(localDir string) ([]*PolicyPDF, error) {
 		return out, err
 	}
 
-	folderRule := `(?i)([^_\\\/]+)_MO_DOC_([0-9]{8})/`
-	pdfRule := `([^_]+)_(POLICY_SCHEDULE|DEBIT_NOTE_FOR_AGENT|MOTOR_CERTIFICATE_OF_INSURANCE|DUPLICATE_POLICY_SCHEDULE|PAYMENT_CERTIFICATE)_([0-9]{8})\.pdf`
+	folderRule := `(?i)([^_\\\/]+)_MO_DOC_([0-9]{8})\/`
+	pdfRule := `([^_]+)_(POLICY_SCHEDULE|DEBIT_NOTE_FOR_AGENT|MOTOR_CERTIFICATE_OF_INSURANCE|DUPLICATE_POLICY_SCHEDULE|PAYMENT_CERTIFICATE)_([0-9]{8})\.pdf$`
 
 	r, err := regexp.Compile(folderRule + pdfRule)
 	if err != nil {
@@ -386,7 +392,7 @@ func (this *DownLoader) GroupPolicyWithOCR(pdfList []*PolicyPDF) ([]*PolicyGroup
 			}
 			continue
 		}
-		policyTmp = append(policyTmp, pdf)
+		policyDPFMapping[pdf.PolicyNumber] = append(policyTmp, pdf)
 	}
 
 	for _, pdfGroup := range policyDPFMapping {
@@ -398,6 +404,7 @@ func (this *DownLoader) GroupPolicyWithOCR(pdfList []*PolicyPDF) ([]*PolicyGroup
 					log.Error(err)
 					continue
 				}
+				ocr.SetCache(this.config.TempDir)
 				mapping, err = ocr.GetFormDataFromFile(pdf.Node.FullPath)
 				if err != nil {
 					log.Error(err)
@@ -434,6 +441,112 @@ func (this *DownLoader) GroupPolicyWithOCR(pdfList []*PolicyPDF) ([]*PolicyGroup
 	}
 
 	return group, nil
+}
+
+func (this *DownLoader) Callback(list []*PolicyGroup) error {
+	uploadEndPoint := this.config.WebHook.Upload
+
+	uploadPathMappings := map[string]string {
+		PDF_TYPE_SCHEDULE: MOTORS_PDF_TYPE_SCHEDULE,
+		PDF_TYPE_DEBIT_NOTE: MOTORS_PDF_TYPE_DEBIT_NOTE,
+		PDF_TYPE_CI: MOTORS_PDF_TYPE_CI,
+		PDF_TYPE_DUPLICATE_SCHEDULE: MOTORS_PDF_TYPE_DUPLICATE_SCHEDULE,
+		PDF_TYPE_IC: MOTORS_PDF_TYPE_IC,
+	}
+
+
+	for _, group := range list {
+		for _, pdf := range group.Files {
+			url := fmt.Sprintf(uploadEndPoint, uploadPathMappings[pdf.PDFType])
+
+			log.Infof("callback url:%s", url)
+
+			err := UploadFile(url, map[string]string{
+				fmt.Sprintf("data[%s]", MOTORS_CHASSIS_NUMBER): group.ClassisNumber,
+				fmt.Sprintf("data[%s]", MOTORS_ENGINE_NUMBER): group.EngineNumber,
+				fmt.Sprintf("data[%s]", MOTORS_REGISTRATION_NUMBER): group.RegistrationNumber,
+				fmt.Sprintf("data[%s]", MOTORS_MODEL): group.Model,
+				fmt.Sprintf("data[%s]", MOTORS_BODY_TYPE): group.BodyType,
+				fmt.Sprintf("data[%s]", MOTORS_EFFECTIVE_DATE): group.EffectiveDate.Format("2006-01-02 15:04:05"),
+				fmt.Sprintf("data[%s]", MOTORS_POLICY_NUMBER): group.PolicyNumber,
+			}, "file", pdf.Node.FullPath, this.config.WebHook.APIKey)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+		}
+	}
+
+	return nil
+}
+
+func UploadFile(url string, params map[string]string, fileFieldName string, filePath string, apiKey string) (error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close();
+
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile(fileFieldName, filepath.Base(filePath))
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return err
+	}
+
+	nowTime := time.Now()
+	timeStr := fmt.Sprintf("%d", nowTime.Unix())
+	hash := md5.Sum([]byte(timeStr + apiKey))
+	signature := hex.EncodeToString(hash[:])
+
+	err = writer.WriteField("time", timeStr)
+	if err != nil {
+		log.Error(err)
+	}
+	err = writer.WriteField("signature", signature)
+	if err != nil {
+		log.Error(err)
+	}
+
+	for key, val := range params {
+		err = writer.WriteField(key, val)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
+	defer writer.Close()
+
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{
+		Timeout: time.Second * 120,
+	}
+
+	response, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	content, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	log.Info(string(content))
+
+	return nil
 }
 
 func SplitEffectiveDateAndExpireDate(src string) (EffectiveDate *time.Time, ExpireDate *time.Time, err error) {

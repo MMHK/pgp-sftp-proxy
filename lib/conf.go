@@ -70,15 +70,22 @@ type AWSOption struct {
 	Bucket    string `json:"bucket"`
 }
 
+type WebHookConfig struct {
+	APIKey  string `json:"apikey"`
+	Upload  string `json:"upload"`
+	Inquire string `json:"inquire"`
+}
+
 type Config struct {
-	Listen        string       `json:"listen"`
-	WebRoot       string       `json:"web_root"`
-	TempDir       string       `json:"tmp_path"`
-	SSH           SSHItem      `json:"ssh"`
-	SFTP          *SftpOptions `json:"sftp"`
-	PGP           *PGPOption   `json:"pgp"`
-	AWS           *AWSOption   `json:"aws"`
-	AvailableTime []*TimeRange `json:"time-range"`
+	Listen        string         `json:"listen"`
+	WebRoot       string         `json:"web_root"`
+	TempDir       string         `json:"tmp_path"`
+	SSH           SSHItem        `json:"ssh"`
+	SFTP          *SftpOptions   `json:"sftp"`
+	PGP           *PGPOption     `json:"pgp"`
+	AWS           *AWSOption     `json:"aws"`
+	WebHook       *WebHookConfig `json:"webhook"`
+	AvailableTime []*TimeRange   `json:"time-range"`
 	save_path     string
 }
 

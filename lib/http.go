@@ -132,6 +132,60 @@ func (this *HTTPService) Encrypt(writer http.ResponseWriter, request *http.Reque
 	}
 }
 
+func (this *HTTPService) Pull(writer http.ResponseWriter, request *http.Request) {
+
+	go func() {
+		worker := NewDownLoader(this.config)
+
+		err := worker.TempDir(func(tempDir string) error {
+			log.Info(tempDir)
+
+
+			err := worker.DownloadFiles(tempDir)
+			if err != err {
+				return err
+			}
+
+			err = worker.DecryptFiles(tempDir)
+			if err != err {
+				return err
+			}
+
+			err = worker.UnZipFiles(tempDir)
+			if err != err {
+				return err
+			}
+
+			pdfList, err := worker.FilterPolicyDoc(tempDir)
+			if err != err {
+				return err
+			}
+
+			mapping, err := worker.GroupPolicyWithOCR(pdfList)
+			if err != err {
+				return err
+			}
+
+			err = worker.Callback(mapping)
+			if err != err {
+				return err
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			log.Error(err)
+		}
+	}()
+
+
+	this.ResponseJSON(&ServiceResult{
+		Status:true,
+	}, writer)
+	return
+}
+
 func (this *HTTPService) ResponseError(err error, writer http.ResponseWriter, StatusCode int) {
 	server_error := &ServiceResult{Error: err.Error(), Status: false}
 	json_str, _ := json.Marshal(server_error)

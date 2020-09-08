@@ -16,6 +16,17 @@
 		"public-key": "${PGP_PUBLIC_KEY}",
 		"private-key": "${PGP_PRIVATE_KEY}"
 	},
+	"aws": {
+		"region": "${AWS_REGION}",
+		"access-key": "${AWS_ACCESS_KEY}",
+		"secret-key": "${AWS_ACCESS_SECRET}",
+		"bucket": "${AWS_BUCKET}"
+	},
+	"webhook":{
+		"apikey": "${WEBHOOK_APIKEY}",
+		"upload": "${WEBHOOK_UPLOAD_ENDPOINT}",
+		"inquire": "${WEBHOOK_INQUIRE_ENDPOINT}"
+	},
 	"time-range": [
 		{
 			"begin": "17:55",

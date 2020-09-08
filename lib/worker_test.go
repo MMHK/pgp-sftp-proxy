@@ -196,6 +196,54 @@ func Test_DownLoader_GetPolicyDataWithOCR(t *testing.T) {
 
 }
 
+func TestDownLoader_FilterPolicyDoc(t *testing.T) {
+	conf, err := loadCustomConfig(getLocalPath("../test/temp/live.json"))
+	if err != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	conf.AWS = &AWSOption{
+		Region: "ap-southeast-1",
+		Bucket: "s3.test.mixmedia.com",
+		AccessKey: os.Getenv("AWS_ACCESS_KEY_ID"),
+		SecretKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
+	}
+
+	worker := NewDownLoader(conf)
+
+	localPath := getLocalPath("../temp/2b795760-8712-4bc9-8330-5ddb711b97f1/A01308_MO_DOC_20200907")
+	pdfList, err := worker.FilterPolicyDoc(localPath)
+	if err != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	for _, pdf := range pdfList {
+		t.Log(pdf)
+	}
+
+	mapping, err := worker.GroupPolicyWithOCR(pdfList)
+	if err != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	for _, policy := range mapping {
+		t.Logf("%-v", policy)
+	}
+
+	err = worker.Callback(mapping)
+	if err != err {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+}
+
 func Test_SplitEffectiveDateAndExpireDate(t *testing.T) {
 	src := `24 September 2018 16:26 to 23 October 2018`
 

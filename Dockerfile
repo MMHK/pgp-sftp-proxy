@@ -45,6 +45,13 @@ ENV HOST=0.0.0.0:3334 \
  SSH_KEY=/data/ssh-private-key.pem \
  PGP_PUBLIC_KEY=/data/pgp-public-key.pem \
  PGP_PRIVATE_KEY=/data/pgp-private-key.pem \
+ AWS_REGION=ap-southeast-1 \
+ AWS_ACCESS_KEY= \
+ AWS_ACCESS_SECRET= \
+ AWS_BUCKET=s3.test.mixmedia.com \
+ WEBHOOK_APIKEY= \
+ WEBHOOK_UPLOAD_ENDPOINT= \
+ WEBHOOK_INQUIRE_ENDPOINT= \
  SFTP_UPLOAD_DIR=/in \
  SFTP_DOWNLOAD_DIR=/out
  

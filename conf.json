@@ -16,6 +16,17 @@
     "public-key": "./test/test-key.pem",
     "private-key": "./test/test-private-key.pem"
   },
+  "aws": {
+    "region": "",
+    "access-key": "",
+    "secret-key": "",
+    "bucket": ""
+  },
+  "webhook":{
+    "apikey": "",
+    "upload": "",
+    "inquire": ""
+  },
   "time-range": [
     {
       "begin": "17:55",
