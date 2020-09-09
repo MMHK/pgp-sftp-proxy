@@ -5,16 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/LK4D4/trylock"
+	"github.com/gorilla/mux"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strings"
-
-	"github.com/gorilla/mux"
 )
 
 type HTTPService struct {
+	downloadTask trylock.Mutex
 	config *Config
 }
 // swagger:response ServiceResult
@@ -35,6 +36,7 @@ func (this *HTTPService) getHTTPHandler() http.Handler {
 	r.HandleFunc("/", this.RedirectSample)
 	r.HandleFunc("/encrypt", this.Encrypt)
 	r.HandleFunc("/upload", this.Upload)
+	r.HandleFunc("/download", this.Pull)
 	r.PathPrefix("/swagger/").Handler(http.StripPrefix("/swagger/",
 		http.FileServer(http.Dir(fmt.Sprintf("%s/swagger", this.config.WebRoot)))))
 	r.NotFoundHandler = http.HandlerFunc(this.NotFoundHandle)
@@ -133,8 +135,15 @@ func (this *HTTPService) Encrypt(writer http.ResponseWriter, request *http.Reque
 }
 
 func (this *HTTPService) Pull(writer http.ResponseWriter, request *http.Request) {
+	ok := this.downloadTask.TryLock()
+	if !ok {
+		this.ResponseError(errors.New("Download task is running"), writer, 500)
+		return
+	}
 
 	go func() {
+		defer this.downloadTask.Unlock()
+
 		worker := NewDownLoader(this.config)
 
 		err := worker.TempDir(func(tempDir string) error {
@@ -161,14 +170,25 @@ func (this *HTTPService) Pull(writer http.ResponseWriter, request *http.Request)
 				return err
 			}
 
-			mapping, err := worker.GroupPolicyWithOCR(pdfList)
+			groupList, err := worker.GroupPolicy(pdfList)
 			if err != err {
 				return err
 			}
 
-			err = worker.Callback(mapping)
-			if err != err {
-				return err
+			for _, group := range groupList {
+				fullPolicy, err := worker.CreateFullPolicyPDF(group)
+				if err != err {
+					log.Error(err)
+					continue
+				}
+
+				group.Files = append(group.Files, fullPolicy)
+
+				err = worker.CallbackWithoutGroup(group.Files)
+				if err != err {
+					log.Error(err)
+					continue
+				}
 			}
 
 			return nil

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func getHttpServer() (*HTTPService, error) {
@@ -149,4 +150,36 @@ func Test_Upload(t *testing.T) {
 	}
 	
 	t.Log(string(body))
+}
+
+func Test_Pull(t *testing.T) {
+	config, err := loadCustomConfig(getLocalPath("../test/temp/live.json"))
+	if err != nil {
+		t.Error(err)
+		t.Fail()
+		return
+	}
+
+	httpServer := NewHTTP(config)
+
+	req := httptest.NewRequest(http.MethodPost, "/download", nil)
+	writer := httptest.NewRecorder()
+
+	httpServer.Pull(writer, req)
+
+	resp := writer.Result()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Response code is %v", resp.StatusCode)
+		t.Fail()
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Log(err)
+		t.Fail()
+		return
+	}
+
+	t.Log(string(body))
+	time.Sleep(time.Second * 100)
 }

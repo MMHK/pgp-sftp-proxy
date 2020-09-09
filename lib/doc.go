@@ -80,3 +80,19 @@ type ResultResponse struct {
 //   500:
 //     description: Error
 
+
+// swagger:operation GET /download upload
+//
+// Download PDF files of Policy from the SFTP
+//
+// ---
+// consumes:
+//   - application/json
+// produces:
+//   - application/json
+// responses:
+//   200:
+//     description: OK
+//   500:
+//     description: Error
+

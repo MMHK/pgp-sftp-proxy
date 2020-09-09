@@ -76,16 +76,22 @@ type WebHookConfig struct {
 	Inquire string `json:"inquire"`
 }
 
+type PolicyWordsPDF struct {
+	PrivateMotor    string `json:"private-motor"`
+	CommercialMotor string `json:"commercial-motor"`
+}
+
 type Config struct {
-	Listen        string         `json:"listen"`
-	WebRoot       string         `json:"web_root"`
-	TempDir       string         `json:"tmp_path"`
-	SSH           SSHItem        `json:"ssh"`
-	SFTP          *SftpOptions   `json:"sftp"`
-	PGP           *PGPOption     `json:"pgp"`
-	AWS           *AWSOption     `json:"aws"`
-	WebHook       *WebHookConfig `json:"webhook"`
-	AvailableTime []*TimeRange   `json:"time-range"`
+	Listen        string          `json:"listen"`
+	WebRoot       string          `json:"web_root"`
+	TempDir       string          `json:"tmp_path"`
+	SSH           SSHItem         `json:"ssh"`
+	SFTP          *SftpOptions    `json:"sftp"`
+	PolicyWords   *PolicyWordsPDF `json:"policy-words"`
+	PGP           *PGPOption      `json:"pgp"`
+	AWS           *AWSOption      `json:"aws"`
+	WebHook       *WebHookConfig  `json:"webhook"`
+	AvailableTime []*TimeRange    `json:"time-range"`
 	save_path     string
 }
 

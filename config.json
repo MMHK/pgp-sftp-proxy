@@ -22,6 +22,10 @@
 		"secret-key": "${AWS_ACCESS_SECRET}",
 		"bucket": "${AWS_BUCKET}"
 	},
+	"policy-words": {
+		"private-motor": "${POLICY_WORDS_PRIVATE_MOTOR}",
+		"commercial-motor": "${POLICY_WORDS_COMMERCIAL_MOTOR}"
+	},
 	"webhook":{
 		"apikey": "${WEBHOOK_APIKEY}",
 		"upload": "${WEBHOOK_UPLOAD_ENDPOINT}",

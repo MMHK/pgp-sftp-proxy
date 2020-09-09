@@ -213,7 +213,7 @@ func TestDownLoader_FilterPolicyDoc(t *testing.T) {
 
 	worker := NewDownLoader(conf)
 
-	localPath := getLocalPath("../temp/2b795760-8712-4bc9-8330-5ddb711b97f1/A01308_MO_DOC_20200907")
+	localPath := getLocalPath("../temp/ae59262c-8188-45f2-9e0f-4fd11c71ab5a/A01308_MO_DOC_20200909")
 	pdfList, err := worker.FilterPolicyDoc(localPath)
 	if err != err {
 		t.Error(err)
@@ -225,23 +225,45 @@ func TestDownLoader_FilterPolicyDoc(t *testing.T) {
 		t.Log(pdf)
 	}
 
-	mapping, err := worker.GroupPolicyWithOCR(pdfList)
+	//mapping, err := worker.GroupPolicyWithOCR(pdfList)
+	//if err != err {
+	//	t.Error(err)
+	//	t.Fail()
+	//	return
+	//}
+	//
+	//for _, policy := range mapping {
+	//	t.Logf("%-v", policy)
+	//}
+
+	groupList, err := worker.GroupPolicy(pdfList)
 	if err != err {
 		t.Error(err)
 		t.Fail()
 		return
 	}
 
-	for _, policy := range mapping {
-		t.Logf("%-v", policy)
+	for _, group := range groupList {
+		fullPolicy, err := worker.CreateFullPolicyPDF(group)
+		if err != err {
+			t.Error(err)
+			t.Fail()
+			return
+		}
+
+		group.Files = append(group.Files, fullPolicy)
+
+		//err = worker.Callback(mapping)
+		err = worker.CallbackWithoutGroup(group.Files)
+		if err != err {
+			t.Error(err)
+			t.Fail()
+			return
+		}
 	}
 
-	err = worker.Callback(mapping)
-	if err != err {
-		t.Error(err)
-		t.Fail()
-		return
-	}
+
+
 }
 
 func Test_SplitEffectiveDateAndExpireDate(t *testing.T) {

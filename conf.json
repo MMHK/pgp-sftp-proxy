@@ -22,6 +22,10 @@
     "secret-key": "",
     "bucket": ""
   },
+  "policy-words": {
+    "private-motor": "",
+    "commercial-motor": ""
+  },
   "webhook":{
     "apikey": "",
     "upload": "",

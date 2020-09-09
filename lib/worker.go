@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu"
 	"github.com/satori/go.uuid"
 	"io"
 	"io/ioutil"
@@ -35,43 +37,51 @@ const (
 	PDF_TYPE_CI                 = `MOTOR_CERTIFICATE_OF_INSURANCE`
 	PDF_TYPE_DUPLICATE_SCHEDULE = `DUPLICATE_POLICY_SCHEDULE`
 	PDF_TYPE_IC                 = `PAYMENT_CERTIFICATE`
+	PDF_TYPE_POLICY             = `POLICY`
 )
 
 const (
-	MOTORS_PDF_TYPE_SCHEDULE 			= `schedule`
-	MOTORS_PDF_TYPE_DEBIT_NOTE 			= `dc`
-	MOTORS_PDF_TYPE_CI 					= `ci`
-	MOTORS_PDF_TYPE_DUPLICATE_SCHEDULE 	= `schedule`
-	MOTORS_PDF_TYPE_IC 					= `ic`
-	MOTORS_PDF_TYPE_FULL_POLICY			= `bill`
+	MOTORS_PDF_TYPE_SCHEDULE           = `schedule`
+	MOTORS_PDF_TYPE_DEBIT_NOTE         = `dc`
+	MOTORS_PDF_TYPE_CI                 = `ci`
+	MOTORS_PDF_TYPE_DUPLICATE_SCHEDULE = `schedule`
+	MOTORS_PDF_TYPE_IC                 = `ic`
+	MOTORS_PDF_TYPE_FULL_POLICY        = `bill`
 )
 
 const (
-	OCR_CHASSIS_NUMBER 		= `Chassis No.`
-	OCR_ENGINE_NUMBER 		= `Engine No. or Type`
+	OCR_CHASSIS_NUMBER      = `Chassis No.`
+	OCR_ENGINE_NUMBER       = `Engine No. or Type`
 	OCR_REGISTRATION_NUMBER = `Registration No.`
-	OCR_PREMIUM_PAYABLE 	= `Premium Payable`
-	OCR_MAKE 				= `Make`
-	OCR_MODEL 				= `Model`
-	OCR_TYPE_OF_COVER 		= `Type of Cover`
-	OCR_BODY_TYPE 			= `Body`
-	OCR_POLICY_NUMBER		= `Policy No.`
-	OCR_NCB					= `NCB`
+	OCR_PREMIUM_PAYABLE     = `Premium Payable`
+	OCR_MAKE                = `Make`
+	OCR_MODEL               = `Model`
+	OCR_TYPE_OF_COVER       = `Type of Cover`
+	OCR_BODY_TYPE           = `Body`
+	OCR_POLICY_NUMBER       = `Policy No.`
+	OCR_NCB                 = `NCB`
 	OCR_PERIOD_OF_INSURANCE = `Period of Insurance`
 )
 
 const (
-	MOTORS_CHASSIS_NUMBER 		= `chasis_no`
-	MOTORS_ENGINE_NUMBER 		= `engn_no`
-	MOTORS_REGISTRATION_NUMBER  = `rgtn_no`
-	MOTORS_PREMIUM_PAYABLE 		= `payable`
-	MOTORS_MAKE 				= `brand`
-	MOTORS_MODEL 				= `rgtn_mdl`
-	MOTORS_TYPE_OF_COVER 		= `trm_of_cvr`
-	MOTORS_BODY_TYPE 			= `typ_of_bdy`
-	MOTORS_POLICY_NUMBER		= `pcy_no`
-	MOTORS_NCB				    = `ncd_prctg`
-	MOTORS_EFFECTIVE_DATE	    = `pcy_cmnt_dt`
+	MOTORS_CHASSIS_NUMBER      = `chasis_no`
+	MOTORS_ENGINE_NUMBER       = `engn_no`
+	MOTORS_REGISTRATION_NUMBER = `rgtn_no`
+	MOTORS_COVERNOTE_NUMBER    = `cvr_nt_no`
+	MOTORS_PREMIUM_PAYABLE     = `payable`
+	MOTORS_MAKE                = `brand`
+	MOTORS_MODEL               = `rgtn_mdl`
+	MOTORS_TYPE_OF_COVER       = `trm_of_cvr`
+	MOTORS_BODY_TYPE           = `typ_of_bdy`
+	MOTORS_POLICY_NUMBER       = `pcy_no`
+	MOTORS_NCB                 = `ncd_prctg`
+	MOTORS_EFFECTIVE_DATE      = `pcy_cmnt_dt`
+)
+
+const (
+	TYPE_OF_MOTORS_PRIVATE_MOTOR    = "D"
+	TYPE_OF_MOTORS_COMMERCIAL_MOTOR = "C"
+	TYPE_OF_MOTORS_MOTOR_CYCLE      = "M"
 )
 
 type PolicyGroup struct {
@@ -84,6 +94,7 @@ type PolicyGroup struct {
 	Model              string
 	TypeOfCover        string
 	BodyType           string
+	CoverNoteNumber    string
 	PolicyNumber       string
 	NCB                string
 	EffectiveDate      *time.Time
@@ -91,11 +102,27 @@ type PolicyGroup struct {
 }
 
 type PolicyPDF struct {
-	Node         *RemoteNode
-	AgentNumber  string
-	CreateTime   string
-	PolicyNumber string
-	PDFType      string
+	Node            *RemoteNode
+	AgentNumber     string
+	CreateTime      string
+	PolicyNumber    string
+	CoverNoteNumber string
+	PDFType         string
+}
+
+func (group *PolicyGroup) TypeOfMotor() string {
+	typeStr := string(group.CoverNoteNumber[2])
+
+	switch typeStr {
+	case TYPE_OF_MOTORS_PRIVATE_MOTOR:
+		return TYPE_OF_MOTORS_PRIVATE_MOTOR
+	case TYPE_OF_MOTORS_COMMERCIAL_MOTOR:
+		return TYPE_OF_MOTORS_COMMERCIAL_MOTOR
+	case TYPE_OF_MOTORS_MOTOR_CYCLE:
+		return TYPE_OF_MOTORS_MOTOR_CYCLE
+	}
+
+	return ""
 }
 
 func (this *PolicyPDF) CreateAt() (time.Time, error) {
@@ -108,7 +135,7 @@ func (this *PolicyPDF) CreateAt() (time.Time, error) {
 	return createAt, nil
 }
 
-func (this *DownLoader) TempDir(callback func(tempDir string)(error)) (error) {
+func (this *DownLoader) TempDir(callback func(tempDir string) (error)) (error) {
 	id := uuid.NewV4()
 	tid := fmt.Sprintf("%s", id)
 	basePath, err := filepath.Abs(this.config.TempDir)
@@ -166,7 +193,7 @@ func (this *DownLoader) DownloadFiles(localDir string) (error) {
 	}
 
 	for counter > 0 {
-		if <- done {
+		if <-done {
 			counter--
 		}
 	}
@@ -280,7 +307,7 @@ func (this *DownLoader) DecryptFiles(localDir string) (error) {
 	}
 
 	for counter > 0 {
-		if <- done {
+		if <-done {
 			counter--
 		}
 	}
@@ -333,9 +360,8 @@ func (this *DownLoader) UnZipFiles(localDir string) (error) {
 		}
 	}
 
-
 	for counter > 0 {
-		if <- done {
+		if <-done {
 			counter--
 		}
 	}
@@ -353,7 +379,7 @@ func (this *DownLoader) FilterPolicyDoc(localDir string) ([]*PolicyPDF, error) {
 	}
 
 	folderRule := `(?i)([^_\\\/]+)_MO_DOC_([0-9]{8})\/`
-	pdfRule := `([^_]+)_(POLICY_SCHEDULE|DEBIT_NOTE_FOR_AGENT|MOTOR_CERTIFICATE_OF_INSURANCE|DUPLICATE_POLICY_SCHEDULE|PAYMENT_CERTIFICATE)_([0-9]{8})\.pdf$`
+	pdfRule := `([^_]+)_([^_]+)_(POLICY_SCHEDULE|DEBIT_NOTE_FOR_AGENT|MOTOR_CERTIFICATE_OF_INSURANCE|DUPLICATE_POLICY_SCHEDULE|PAYMENT_CERTIFICATE)_([0-9]{8})\.pdf$`
 
 	r, err := regexp.Compile(folderRule + pdfRule)
 	if err != nil {
@@ -365,19 +391,78 @@ func (this *DownLoader) FilterPolicyDoc(localDir string) ([]*PolicyPDF, error) {
 		fullPath := filepath.ToSlash(item.FullPath)
 		if r.MatchString(fullPath) {
 			matches := r.FindAllStringSubmatch(fullPath, 1)
-			if len(matches) > 0 && len(matches[0]) > 5 {
+			if len(matches) > 0 && len(matches[0]) > 6 {
 				out = append(out, &PolicyPDF{
-					Node: item,
-					PolicyNumber: matches[0][3],
-					AgentNumber: matches[0][1],
-					CreateTime: matches[0][5],
-					PDFType: matches[0][4],
+					Node:         item,
+					CoverNoteNumber: matches[0][3],
+					PolicyNumber: matches[0][4],
+					AgentNumber:  matches[0][1],
+					CreateTime:   matches[0][6],
+					PDFType:      matches[0][5],
 				})
 			}
 		}
 	}
 
 	return out, nil
+}
+
+func (this *DownLoader) CallbackWithoutGroup(pdfList []*PolicyPDF) (error) {
+	uploadEndPoint := this.config.WebHook.Upload
+
+	uploadPathMappings := map[string]string{
+		PDF_TYPE_SCHEDULE:           MOTORS_PDF_TYPE_SCHEDULE,
+		PDF_TYPE_DEBIT_NOTE:         MOTORS_PDF_TYPE_DEBIT_NOTE,
+		PDF_TYPE_CI:                 MOTORS_PDF_TYPE_CI,
+		PDF_TYPE_DUPLICATE_SCHEDULE: MOTORS_PDF_TYPE_DUPLICATE_SCHEDULE,
+		PDF_TYPE_IC:                 MOTORS_PDF_TYPE_IC,
+		PDF_TYPE_POLICY:             MOTORS_PDF_TYPE_FULL_POLICY,
+	}
+
+	for _, pdf := range pdfList {
+		url := fmt.Sprintf(uploadEndPoint, uploadPathMappings[pdf.PDFType])
+
+		log.Infof("callback url:%s", url)
+
+		err := UploadFile(url, map[string]string{
+			fmt.Sprintf("data[%s]", MOTORS_COVERNOTE_NUMBER): pdf.CoverNoteNumber,
+		}, "file", pdf.Node.FullPath, this.config.WebHook.APIKey)
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+	}
+
+	return nil
+}
+
+func (this *DownLoader) GroupPolicy(pdfList []*PolicyPDF) ([]*PolicyGroup, error) {
+	group := make([]*PolicyGroup, 0)
+
+	policyDPFMapping := make(map[string][]*PolicyPDF, 0)
+	for _, pdf := range pdfList {
+		policyTmp, ok := policyDPFMapping[pdf.PolicyNumber]
+		if !ok {
+			policyDPFMapping[pdf.PolicyNumber] = []*PolicyPDF{
+				pdf,
+			}
+			continue
+		}
+		policyDPFMapping[pdf.PolicyNumber] = append(policyTmp, pdf)
+	}
+
+	for policyNumber, list := range policyDPFMapping {
+		item := &PolicyGroup{
+			PolicyNumber: policyNumber,
+			Files: list,
+		}
+		if len(list) > 0 {
+			item.CoverNoteNumber = list[0].CoverNoteNumber
+		}
+		group = append(group, item)
+	}
+
+	return group, nil
 }
 
 func (this *DownLoader) GroupPolicyWithOCR(pdfList []*PolicyPDF) ([]*PolicyGroup, error) {
@@ -446,14 +531,13 @@ func (this *DownLoader) GroupPolicyWithOCR(pdfList []*PolicyPDF) ([]*PolicyGroup
 func (this *DownLoader) Callback(list []*PolicyGroup) error {
 	uploadEndPoint := this.config.WebHook.Upload
 
-	uploadPathMappings := map[string]string {
-		PDF_TYPE_SCHEDULE: MOTORS_PDF_TYPE_SCHEDULE,
-		PDF_TYPE_DEBIT_NOTE: MOTORS_PDF_TYPE_DEBIT_NOTE,
-		PDF_TYPE_CI: MOTORS_PDF_TYPE_CI,
+	uploadPathMappings := map[string]string{
+		PDF_TYPE_SCHEDULE:           MOTORS_PDF_TYPE_SCHEDULE,
+		PDF_TYPE_DEBIT_NOTE:         MOTORS_PDF_TYPE_DEBIT_NOTE,
+		PDF_TYPE_CI:                 MOTORS_PDF_TYPE_CI,
 		PDF_TYPE_DUPLICATE_SCHEDULE: MOTORS_PDF_TYPE_DUPLICATE_SCHEDULE,
-		PDF_TYPE_IC: MOTORS_PDF_TYPE_IC,
+		PDF_TYPE_IC:                 MOTORS_PDF_TYPE_IC,
 	}
-
 
 	for _, group := range list {
 		for _, pdf := range group.Files {
@@ -462,13 +546,13 @@ func (this *DownLoader) Callback(list []*PolicyGroup) error {
 			log.Infof("callback url:%s", url)
 
 			err := UploadFile(url, map[string]string{
-				fmt.Sprintf("data[%s]", MOTORS_CHASSIS_NUMBER): group.ClassisNumber,
-				fmt.Sprintf("data[%s]", MOTORS_ENGINE_NUMBER): group.EngineNumber,
+				fmt.Sprintf("data[%s]", MOTORS_CHASSIS_NUMBER):      group.ClassisNumber,
+				fmt.Sprintf("data[%s]", MOTORS_ENGINE_NUMBER):       group.EngineNumber,
 				fmt.Sprintf("data[%s]", MOTORS_REGISTRATION_NUMBER): group.RegistrationNumber,
-				fmt.Sprintf("data[%s]", MOTORS_MODEL): group.Model,
-				fmt.Sprintf("data[%s]", MOTORS_BODY_TYPE): group.BodyType,
-				fmt.Sprintf("data[%s]", MOTORS_EFFECTIVE_DATE): group.EffectiveDate.Format("2006-01-02 15:04:05"),
-				fmt.Sprintf("data[%s]", MOTORS_POLICY_NUMBER): group.PolicyNumber,
+				fmt.Sprintf("data[%s]", MOTORS_MODEL):               group.Model,
+				fmt.Sprintf("data[%s]", MOTORS_BODY_TYPE):           group.BodyType,
+				fmt.Sprintf("data[%s]", MOTORS_EFFECTIVE_DATE):      group.EffectiveDate.Format("2006-01-02 15:04:05"),
+				fmt.Sprintf("data[%s]", MOTORS_POLICY_NUMBER):       group.PolicyNumber,
 			}, "file", pdf.Node.FullPath, this.config.WebHook.APIKey)
 			if err != nil {
 				log.Error(err)
@@ -486,7 +570,6 @@ func UploadFile(url string, params map[string]string, fileFieldName string, file
 		return err
 	}
 	defer file.Close();
-
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
 	part, err := writer.CreateFormFile(fileFieldName, filepath.Base(filePath))
@@ -638,4 +721,60 @@ func UnZipFile(zipFilePath string, extractDir string) ([]string, error) {
 		}
 	}
 	return fileList, nil
+}
+
+func GetPolicyPDF(pdfList []*PolicyPDF, pdfType string) (*PolicyPDF, error) {
+
+	for _, pdf := range pdfList {
+		if pdf.PDFType == pdfType {
+			return pdf, nil
+		}
+	}
+
+	return nil, errors.New("PDF not found")
+}
+
+func (this *DownLoader) CreateFullPolicyPDF(group *PolicyGroup) (*PolicyPDF, error) {
+	pdfList := make([]string, 0)
+
+	CI, err := GetPolicyPDF(group.Files, PDF_TYPE_CI)
+	if err != nil {
+		return nil, err
+	}
+
+	pdfList = append(pdfList, CI.Node.FullPath)
+
+	Schedule, err := GetPolicyPDF(group.Files, PDF_TYPE_SCHEDULE)
+	if err != nil {
+		return nil, err
+	}
+
+	pdfList = append(pdfList, Schedule.Node.FullPath)
+
+	if group.TypeOfMotor() == TYPE_OF_MOTORS_PRIVATE_MOTOR {
+		pdfList = append(pdfList, this.config.PolicyWords.PrivateMotor)
+	}
+
+	if group.TypeOfMotor() == TYPE_OF_MOTORS_COMMERCIAL_MOTOR {
+		pdfList = append(pdfList, this.config.PolicyWords.CommercialMotor)
+	}
+
+	conf := pdfcpu.NewDefaultConfiguration()
+	distPDFFileName := fmt.Sprintf("%s_%s_POLICY_%s.pdf", CI.CoverNoteNumber, CI.PolicyNumber, CI.CreateTime)
+	distDir := filepath.Dir(CI.Node.FullPath)
+	err = api.MergeCreateFile(pdfList, filepath.Join(distDir, distPDFFileName), conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PolicyPDF{
+		PolicyNumber: CI.PolicyNumber,
+		CoverNoteNumber: CI.CoverNoteNumber,
+		CreateTime: CI.CreateTime,
+		AgentNumber: CI.AgentNumber,
+		PDFType: PDF_TYPE_POLICY,
+		Node: &RemoteNode{
+			FullPath: filepath.Join(distDir, distPDFFileName),
+		},
+	}, nil
 }
