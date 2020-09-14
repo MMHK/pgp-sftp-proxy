@@ -426,6 +426,7 @@ func (this *DownLoader) CallbackWithoutGroup(pdfList []*PolicyPDF) (error) {
 
 		err := UploadFile(url, map[string]string{
 			fmt.Sprintf("data[%s]", MOTORS_COVERNOTE_NUMBER): pdf.CoverNoteNumber,
+			fmt.Sprintf("data[%s]", MOTORS_POLICY_NUMBER): pdf.PolicyNumber,
 		}, "file", pdf.Node.FullPath, this.config.WebHook.APIKey)
 		if err != nil {
 			log.Error(err)
