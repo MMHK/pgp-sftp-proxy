@@ -135,6 +135,12 @@ func (this *HTTPService) Encrypt(writer http.ResponseWriter, request *http.Reque
 }
 
 func (this *HTTPService) Pull(writer http.ResponseWriter, request *http.Request) {
+	if !CanUpload(this.config.AvailableTime) {
+		this.ResponseError(errors.New("out of office time"),
+			writer, 500)
+		return
+	}
+
 	ok := this.downloadTask.TryLock()
 	if !ok {
 		this.ResponseError(errors.New("Download task is running"), writer, 500)
