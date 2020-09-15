@@ -27,7 +27,7 @@
         "produces": [
           "application/json"
         ],
-        "operationId": "upload",
+        "operationId": "downloadPGP",
         "responses": {
           "200": {
             "description": "OK"
@@ -48,7 +48,7 @@
           "application/json",
           "text/plain; charset=utf-8"
         ],
-        "operationId": "encrypt",
+        "operationId": "encryptUpload",
         "parameters": [
           {
             "type": "file",
@@ -85,7 +85,7 @@
         "produces": [
           "application/json"
         ],
-        "operationId": "upload",
+        "operationId": "uploadXMLPGP",
         "parameters": [
           {
             "type": "file",

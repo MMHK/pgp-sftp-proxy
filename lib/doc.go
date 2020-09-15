@@ -23,7 +23,7 @@ type ResultResponse struct {
 }
 
 
-// swagger:operation POST /encrypt encrypt
+// swagger:operation POST /encrypt encryptUpload
 //
 // Encrypt source file to PGP
 //
@@ -53,7 +53,7 @@ type ResultResponse struct {
 //
 //
 
-// swagger:operation POST /upload upload
+// swagger:operation POST /upload uploadXMLPGP
 //
 // Encrypt source file to PGP and Upload to SFTP
 //
@@ -81,7 +81,7 @@ type ResultResponse struct {
 //     description: Error
 
 
-// swagger:operation GET /download upload
+// swagger:operation GET /download downloadPGP
 //
 // Download PDF files of Policy from the SFTP
 //
