@@ -20,7 +20,7 @@ RUN go version \
 FROM alpine:latest  
 
 ENV HOST=0.0.0.0:3333 \
- ROOT=/root/pgp-sftp-proxy/web_root \
+ ROOT=/app/web_root \
  TEMP=/tmp \
  SSH_HOST= \
  SSH_USER= \
@@ -30,23 +30,23 @@ ENV HOST=0.0.0.0:3333 \
  DEPLOY_PATH_PRODUCTION=/Interface_Production_Files/ \
  DEPLOY_PATH_TESTING=/Interface_UAT_Files/ 
 
-RUN apk --no-cache add ca-certificates \
-    && apk add --update python python-dev py-pip build-base \
-    && apk add gettext libintl \
-    && mv /usr/bin/envsubst /usr/local/sbin/envsubst \
-    && pip install dumb-init \
-    && apk del python  python-dev py-pip build-base gettext \
-    && rm -rf /var/cache/apk/* \
-    && rm -rf /tmp/*
+RUN wget -O /usr/local/bin/dumb-init https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 \
+ && chmod +x /usr/local/bin/dumb-init \
+ && apk add --update libintl \
+ && apk add --virtual build_deps gettext \
+ && cp /usr/bin/envsubst /usr/local/bin/envsubst \
+ && apk del build_deps
 
-WORKDIR /root/
+WORKDIR /app
 
 # Copy the Pre-built binary file from the previous stage
-COPY --from=builder /app/pgp-sftp-proxy .
+COPY --from=builder /app/pgp-sftp-proxy/pgp-sftp-proxy .
+COPY --from=builder /app/pgp-sftp-proxy/web_root ./web_root
+COPY --from=builder /app/pgp-sftp-proxy/config.json .
  
 EXPOSE 3333
 
 ENTRYPOINT ["dumb-init"]
 
-CMD /usr/local/sbin/envsubst < /root/pgp-sftp-proxy/config.json > /root/pgp-sftp-proxy/temp.json \
- && /root/pgp-sftp-proxy/pgp-sftp-proxy -c /root/pgp-sftp-proxy/temp.json
+CMD envsubst < /app/config.json > /app/temp.json \
+ && /app/pgp-sftp-proxy -c /app/temp.json

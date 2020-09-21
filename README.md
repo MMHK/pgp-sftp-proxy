@@ -84,5 +84,5 @@ docker pull mmhk/pgp-sftp-proxy
   - DEPLOY_PATH_TESTING, sftp 远程测试目录文件夹, 默认值：`/Interface_UAT_Files/`
 - 运行
 ```
-docker run --name mmhk/pgp-sftp-proxy -p 3333:3333 mmhk/mmhk/pgp-sftp-proxy:latest
+docker run --name pgp-sftp-proxy -p 3333:3333 mmhk/pgp-sftp-proxy:latest
 ```

@@ -7,74 +7,90 @@ import (
 	_ "golang.org/x/crypto/ripemd160"
 	"io"
 	"os"
+	"path"
 )
 
-func PGP_Encrypt(src []byte, PublicKey io.Reader) (EncryptEntry string, err error) {
+type PGPHelper struct {
+	toKey []*openpgp.Entity
+}
 
-	entryList, err := openpgp.ReadArmoredKeyRing(PublicKey)
+func NewPGPHelper(publicKey io.Reader) (*PGPHelper, error) {
+	entryList, err := openpgp.ReadArmoredKeyRing(publicKey)
 	if err != nil {
 		log.Error(err)
-		return
+		return nil, err
 	}
+	
+	return &PGPHelper{
+		toKey: entryList,
+	}, nil
+}
+
+func (this *PGPHelper) Encrypt(source io.Reader) (*bytes.Buffer, error) {
 	buffer := new(bytes.Buffer)
-
+	
 	header := map[string]string{"Creator": "MixMedia"}
-	cWriter, err := armor.Encode(buffer, "PGP MESSAGE", header)
+	body, err := armor.Encode(buffer, "PGP MESSAGE", header)
 	if err != nil {
 		log.Error(err)
-		return
+		return nil, err
 	}
-	writer, err := openpgp.Encrypt(cWriter, entryList, nil, nil, nil)
+	defer body.Close()
+	
+	writer, err := openpgp.Encrypt(body, this.toKey, nil, nil, nil)
 	if err != nil {
 		log.Error(err)
-		return
+		return nil, err
 	}
-	_, err = writer.Write(src)
+	defer writer.Close()
+	
+	_, err = io.Copy(writer, source)
 	if err != nil {
 		log.Error(err)
-		return
+		return nil, err
 	}
+	return buffer, nil
+}
 
-	writer.Close()
+func PGP_Encrypt(src []byte, PublicKey io.Reader) (EncryptEntry string, err error) {
+	helper, err := NewPGPHelper(PublicKey)
+	if err != nil {
+		return "", err
+	}
+	srcReader := bytes.NewReader(src)
 
-	cWriter.Close()
-
-	EncryptEntry = buffer.String()
-	return
+	buffer, err := helper.Encrypt(srcReader)
+	if err != nil {
+		return "", err
+	}
+	
+	return buffer.String(), nil
 }
 
 func PGP_Encrypt_File(src []byte, PublicKey io.Reader, save_path string) (err error) {
-	enrtylist, err := openpgp.ReadArmoredKeyRing(PublicKey)
+	distPath := path.Dir(save_path)
+	if _, err := os.Stat(distPath); err != nil && os.IsNotExist(err) {
+		os.MkdirAll(distPath, os.ModePerm)
+	}
+	distFile, err := os.Create(save_path)
 	if err != nil {
 		log.Error(err)
-		return
+		return err
 	}
-	save_file, err := os.Create(save_path)
+	defer distFile.Close()
+	
+	helper, err := NewPGPHelper(PublicKey)
+	if err != nil {
+		return err
+	}
+	srcReader := bytes.NewReader(src)
+	buffer, err := helper.Encrypt(srcReader)
+	
+	_, err = io.Copy(distFile, buffer)
 	if err != nil {
 		log.Error(err)
-		return
+		return err
 	}
-	defer save_file.Close()
-
-	header := map[string]string{"Creator": "MixMedia"}
-	cWriter, err := armor.Encode(save_file, "PGP MESSAGE", header)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	writer, err := openpgp.Encrypt(cWriter, enrtylist, nil, nil, nil)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	_, err = writer.Write(src)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-
-	writer.Close()
-
-	cWriter.Close()
-	return
+	
+	return nil
 }

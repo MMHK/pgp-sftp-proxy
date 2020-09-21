@@ -13,7 +13,7 @@ func getLocalConfigPath(file string) string {
 }
 
 func getConfig() (error, *Config) {
-	err, conf := NewConfig(getLocalConfigPath("../config.json"))
+	err, conf := NewConfig(getLocalConfigPath("../conf.json"))
 	if err != nil {
 		return err, nil
 	}
@@ -21,7 +21,7 @@ func getConfig() (error, *Config) {
 }
 
 func getPGPKey() (error, []byte) {
-	pgpKey := getLocalConfigPath("../temp/dahsing_uat_public.pem")
+	pgpKey := getLocalConfigPath("../test/test-key.pem")
 	src, err := ioutil.ReadFile(pgpKey)
 	if err != nil {
 		return err, nil
