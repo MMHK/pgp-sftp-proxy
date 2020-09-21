@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"errors"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"io"
@@ -8,7 +9,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 )
+
+const KeyboardInteractiveRetryCount = 3
 
 type SSHItem struct {
 	Host       string `json:"host"`
@@ -63,7 +67,21 @@ func (c *SSHClient) Connect() (session *(ssh.Session), err error) {
 			}
 			authMethods = append(authMethods, ssh.PublicKeys(key))
 		}
-		authMethods = append(authMethods, ssh.Password(c.config.Password))
+		retryCounter := 0
+		//authMethods = append(authMethods, ssh.Password(c.config.Password))
+		authMethods = append(authMethods, ssh.KeyboardInteractive(func(user, instruction string, questions []string, echos []bool) (answers []string, err error) {
+			answers = make([]string, len(questions))
+			// The second parameter is unused
+			for n, _ := range questions {
+				answers[n] = c.config.Password
+			}
+			retryCounter++;
+			if retryCounter >= KeyboardInteractiveRetryCount {
+				return nil, errors.New("too many login attempts, invalid username or password")
+			}
+
+			return answers, nil
+		}))
 		config := &ssh.ClientConfig{
 			User: c.config.Username,
 			Auth: authMethods,
@@ -71,6 +89,11 @@ func (c *SSHClient) Connect() (session *(ssh.Session), err error) {
 			HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 				return nil
 			},
+			BannerCallback: func(message string) error {
+				log.Info(message)
+				return nil
+			},
+			Timeout: time.Second * 15,
 		}
 
 		client, err := ssh.Dial("tcp", c.config.Host, config)

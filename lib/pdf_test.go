@@ -8,13 +8,6 @@ import (
 	"testing"
 )
 
-func loadConfig() (*Config, error) {
-	err, conf := NewConfig(getLocalPath("../config.json"))
-	if err != nil {
-		return nil, err
-	}
-	return conf, nil
-}
 
 func Test_getPDFBytes(t *testing.T) {
 

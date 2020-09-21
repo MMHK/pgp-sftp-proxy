@@ -14,7 +14,7 @@ import (
 )
 
 func getHttpServer() (*HTTPService, error) {
-	err, conf := getConfig()
+	conf, err := loadConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func getHttpServer() (*HTTPService, error) {
 }
 
 func getMultipart(parts map[string]string) (io.Reader, string, error) {
-	testUploadFile := getLocalPath("../test/M_Article_Zurich_ca.gif")
+	testUploadFile := getLocalPath("../test/temp/dahsing-SCHEDULE-sample.pdf")
 	requestReader := new(bytes.Buffer)
 	bodyWriter := multipart.NewWriter(requestReader)
 	part, err := bodyWriter.CreateFormFile("upload", filepath.Base(testUploadFile))
@@ -150,7 +150,7 @@ func Test_Upload(t *testing.T) {
 		return
 	}
 	
-	publicKey, err := ioutil.ReadFile(getLocalPath("../test/test-key.pem"))
+	publicKey, err := ioutil.ReadFile(getLocalPath("../test/temp/dahsing-public-key.pem"))
 	if err != nil {
 		t.Log(err)
 		t.Fail()
