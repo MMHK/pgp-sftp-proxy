@@ -23,11 +23,20 @@ import (
 
 type DownLoader struct {
 	config *Config
+	FileExpire time.Time
 }
 
 func NewDownLoader(conf *Config) *DownLoader {
 	return &DownLoader{
 		config: conf,
+		FileExpire: time.Now().Add(-(time.Hour * 24 * 2)),
+	}
+}
+
+func NewDownLoaderWithExpired(conf *Config, expired time.Time) *DownLoader {
+	return &DownLoader{
+		config: conf,
+		FileExpire: expired,
 	}
 }
 
@@ -149,7 +158,7 @@ func (this *DownLoader) TempDir(callback func(tempDir string) (error)) (error) {
 			return err
 		}
 	}
-	defer os.RemoveAll(tempDirPath)
+	//defer os.RemoveAll(tempDirPath)
 
 	return callback(tempDirPath)
 }
@@ -168,12 +177,39 @@ func (this *DownLoader) DownloadFiles(localDir string) (error) {
 	defer close(done)
 
 	counter := 0
-
+	
+	folderRule := `(?i)([^_\\\/]+)_MO_DOC_([0-9]{8})\.zip`
+	
+	r, err := regexp.Compile(folderRule)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	
 	for _, remoteFile := range fileList {
 		localPath := filepath.Join(localDir, filepath.Base(remoteFile))
 
+		//filter pass files
+		baseName := filepath.Base(remoteFile)
+		matches := r.FindAllStringSubmatch(baseName, 1)
+		if len(matches) > 0 && len(matches[0]) > 2 {
+			dateStr := matches[0][2]
+			fileTime, err := time.Parse("20060102", dateStr)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			//keep download files in 2 day
+			if fileTime.Before(this.FileExpire) {
+				continue
+			}
+			
+		} else {
+			continue
+		}
+		
 		counter++
-
+		
 		go func(localPath string, remoteFile string) {
 			//进入队列
 			queue <- true
@@ -420,7 +456,12 @@ func (this *DownLoader) CallbackWithoutGroup(pdfList []*PolicyPDF) (error) {
 	}
 
 	for _, pdf := range pdfList {
-		url := fmt.Sprintf(uploadEndPoint, uploadPathMappings[pdf.PDFType])
+		dist, ok := uploadPathMappings[pdf.PDFType]
+		if !ok {
+			log.Error(pdf)
+			continue
+		}
+		url := fmt.Sprintf(uploadEndPoint, dist)
 
 		log.Infof("callback url:%s", url)
 
@@ -747,6 +788,7 @@ func (this *DownLoader) CreateFullPolicyPDF(group *PolicyGroup) (*PolicyPDF, err
 
 	Schedule, err := GetPolicyPDF(group.Files, PDF_TYPE_SCHEDULE)
 	if err != nil {
+		log.Error(err)
 		return nil, err
 	}
 
@@ -765,6 +807,7 @@ func (this *DownLoader) CreateFullPolicyPDF(group *PolicyGroup) (*PolicyPDF, err
 	distDir := filepath.Dir(CI.Node.FullPath)
 	err = api.MergeCreateFile(pdfList, filepath.Join(distDir, distPDFFileName), conf)
 	if err != nil {
+		log.Error(err)
 		return nil, err
 	}
 

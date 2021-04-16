@@ -36,7 +36,7 @@ func Test_TempDir(t *testing.T)  {
 }
 
 func Test_DownloadFiles_DecryptFiles_UnZipFiles(t *testing.T) {
-	conf, err := loadCustomConfig(getLocalPath("../test/temp/live.json"))
+	conf, err := loadCustomConfig(getLocalPath("../test/live/config.json"))
 	if err != err {
 		t.Error(err)
 		t.Fail()
@@ -61,20 +61,21 @@ func Test_DownloadFiles_DecryptFiles_UnZipFiles(t *testing.T) {
 		if err != err {
 			return err
 		}
-
+		
 		err = worker.UnZipFiles(tempDir)
 		if err != err {
 			return err
 		}
-
+		
 		list, err := worker.GetLocalFiles(tempDir)
 		if err != err {
 			return err
 		}
-
+		
 		for _, file := range list {
 			t.Log(file.FullPath)
 		}
+
 
 		return nil
 	})
@@ -197,7 +198,7 @@ func Test_DownLoader_GetPolicyDataWithOCR(t *testing.T) {
 }
 
 func TestDownLoader_FilterPolicyDoc(t *testing.T) {
-	conf, err := loadCustomConfig(getLocalPath("../test/temp/live.json"))
+	conf, err := loadCustomConfig(getLocalPath("../test/live/config.json"))
 	if err != err {
 		t.Error(err)
 		t.Fail()
@@ -213,7 +214,7 @@ func TestDownLoader_FilterPolicyDoc(t *testing.T) {
 
 	worker := NewDownLoader(conf)
 
-	localPath := getLocalPath("../temp/ae59262c-8188-45f2-9e0f-4fd11c71ab5a/A01308_MO_DOC_20200909")
+	localPath := getLocalPath("../temp/e2feadde-2434-48c6-b6c2-4728f9133352/A01308_MO_DOC_20210415")
 	pdfList, err := worker.FilterPolicyDoc(localPath)
 	if err != err {
 		t.Error(err)
