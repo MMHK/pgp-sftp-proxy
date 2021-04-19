@@ -90,6 +90,11 @@ type ResultResponse struct {
 //   - application/json
 // produces:
 //   - application/json
+// parameters:
+// - name: date
+//   type: string
+//   in: query
+//   description: "start date format: YYYY-MM-DD"
 // responses:
 //   200:
 //     description: OK

@@ -28,6 +28,14 @@
           "application/json"
         ],
         "operationId": "downloadPGP",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "start date format: YYYY-MM-DD",
+            "name": "date",
+            "in": "query"
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK"

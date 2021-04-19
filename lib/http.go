@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type HTTPService struct {
@@ -140,6 +141,16 @@ func (this *HTTPService) Pull(writer http.ResponseWriter, request *http.Request)
 			writer, 500)
 		return
 	}
+	
+	request.ParseMultipartForm(32 << 20)
+	// format: YYYY-MM-DD
+	dateStr := request.FormValue("date")
+	expireDate, err := time.Parse(`2006-01-02`, dateStr)
+	if err != nil {
+		log.Error(err)
+		// 转换失败默认只 下载 2天内的文件
+		expireDate = time.Now().Add(-(time.Hour * 24 * 2))
+	}
 
 	ok := this.downloadTask.TryLock()
 	if !ok {
@@ -150,7 +161,7 @@ func (this *HTTPService) Pull(writer http.ResponseWriter, request *http.Request)
 	go func() {
 		defer this.downloadTask.Unlock()
 
-		worker := NewDownLoader(this.config)
+		worker := NewDownLoaderWithExpired(this.config, expireDate)
 
 		err := worker.TempDir(func(tempDir string) error {
 			log.Info(tempDir)

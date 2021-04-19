@@ -25,7 +25,14 @@ type DownLoader struct {
 	config *Config
 	FileExpire time.Time
 }
-
+// 可自定开始下载的文件日期
+func NewDownloadWithExpire(conf *Config, expire time.Time) *DownLoader {
+	return &DownLoader{
+		config: conf,
+		FileExpire: expire,
+	}
+}
+// 默认只下载 两天内的文件
 func NewDownLoader(conf *Config) *DownLoader {
 	return &DownLoader{
 		config: conf,
