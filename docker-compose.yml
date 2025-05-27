@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  pgp-sftp-proxy:
+    image: mmhk/pgp-sftp-proxy:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
+
+  app:
+    image: mmhk/pgp-sftp-proxy:latest
+    restart: always
+    environment:
+      SSH_HOST: ${SSH_HOST}
+      SSH_USER: ${SSH_USER}
+      SSH_PWD: ${SSH_PWD}
+      SSH_KEY: ${SSH_KEY}
+    ports:
+      - "3333:3333"

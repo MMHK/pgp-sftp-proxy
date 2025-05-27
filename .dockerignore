@@ -1,0 +1,13 @@
+vendor
+test
+.README.md
+LICENSE
+.gitignore
+.git
+.dockerignore
+.idea
+docker-compose.yml
+temp
+*.exe
+.env
+.env.example
