@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+func GetTestKeyPath() string {
+	return os.Getenv("TEST_KEY_PATH")
+}
+
 func Test_PGP_Encrypt(t *testing.T) {
 	sourceFile, err := ioutil.ReadFile(getLocalPath("../test/M_Article_Zurich_ca.gif"))
 	if err != nil {
@@ -20,7 +24,7 @@ func Test_PGP_Encrypt(t *testing.T) {
 	//	t.Fail()
 	//	return
 	//}
-	reader, err := os.Open(getLocalPath("../test/test-key.pem"))
+	reader, err := os.Open(GetTestKeyPath())
 	if err != nil {
 		t.Log(err)
 		t.Fail()
@@ -47,7 +51,7 @@ func Test_PGP_Encrypt_File(t *testing.T) {
 		return
 	}
 
-	keyFile, err := os.Open(getLocalPath("../test/test-key.pem"))
+	keyFile, err := os.Open(GetTestKeyPath())
 	if err != nil {
 		t.Log(err)
 		t.Fail()

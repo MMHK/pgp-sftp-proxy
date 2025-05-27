@@ -15,7 +15,7 @@ sftp http proxy with PGP encrypt
 
 ## 编译
 ----
-- 安装Golang环境, Go >= 1.12
+- 安装Golang环境, Go >= 1.23
 - checkout 源码
 - 在源码目录 执行` go mod vendor `签出所有的依赖库
 - ` go build -o pgp-sftp-proxy . ` 编译成二进制可执行文件
